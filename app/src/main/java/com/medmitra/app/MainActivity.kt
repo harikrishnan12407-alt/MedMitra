@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +20,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -75,7 +78,7 @@ private fun MedMitraApp() {
                 NavigationBar(
                     containerColor = MedMitraColors.Surface,
                     contentColor = MedMitraColors.TextSecondary,
-                    tonalElevation = 5.dp
+                    tonalElevation = 1.dp
                 ) {
                     listOf(
                         Triple("home", "Home", Icons.Filled.Home),
@@ -85,8 +88,8 @@ private fun MedMitraApp() {
                         NavigationBarItem(
                             selected = route == destination,
                             onClick = { nav.navigate(destination) { launchSingleTop = true } },
-                            icon = { Icon(icon, contentDescription = label) },
-                            label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+                            icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(21.dp)) },
+                            label = { Text(label, fontSize = 10.sp, fontWeight = FontWeight.Medium) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MedMitraColors.MintDark,
                                 selectedTextColor = MedMitraColors.MintDark,
@@ -135,19 +138,20 @@ private val features = listOf(
 @Composable
 private fun HomeScreen(onOpen: (String) -> Unit) {
     var vitaminTaken by rememberSaveable { mutableStateOf(false) }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().background(MedMitraColors.Background),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 22.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFF0FAF4), MedMitraColors.Background, Color(0xFFF8FBF9))))) {
+      LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+      ) {
         item {
-            Row(Modifier.fillMaxWidth().heightIn(min = 60.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 54.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Good morning, Ananya", style = MaterialTheme.typography.headlineSmall, color = MedMitraColors.Text)
+                    Text("Good morning, Ananya", style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
                     Text("Your care, at a glance", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
                 }
                 Box(
-                    Modifier.size(44.dp).clip(CircleShape).background(MedMitraColors.MintPale),
+                    Modifier.size(40.dp).clip(CircleShape).background(MedMitraColors.MintPale),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("A", color = MedMitraColors.MintDark, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
@@ -160,21 +164,21 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
             Spacer(Modifier.height(8.dp))
             FrostedCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("NEXT REMINDER", color = MedMitraColors.Sage, fontSize = 10.sp, letterSpacing = 1.1.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text("NEXT REMINDER", color = MedMitraColors.Sage, fontSize = 9.sp, letterSpacing = 1.1.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                     SoftPill("9:00 AM")
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    IconBadge(Icons.Filled.Medication, tint = MedMitraColors.MintDark, size = 46)
-                    Spacer(Modifier.width(12.dp))
+                    IconBadge(Icons.Filled.Medication, tint = MedMitraColors.MintDark, size = 40)
+                    Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Vitamin D3", style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
+                        Text("Vitamin D3", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
                         Text("1 capsule · after breakfast", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
                     }
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
                 HorizontalDivider(color = MedMitraColors.Divider)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(7.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Today · Morning", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, modifier = Modifier.weight(1f))
                     if (vitaminTaken) {
@@ -196,10 +200,10 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
 
         item {
             SectionHeading("Your shortcuts")
-            Spacer(Modifier.height(8.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Spacer(Modifier.height(5.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 features.chunked(2).forEach { rowFeatures ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         rowFeatures.forEach { feature ->
                             ShortcutCard(feature, Modifier.weight(1f)) { onOpen(feature.id) }
                         }
@@ -219,6 +223,7 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
             )
         }
+      }
     }
 }
 
@@ -241,10 +246,12 @@ private fun MedicinePreviewCard(onClick: () -> Unit) {
 private fun SosPreview(onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
+            .shadow(2.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x12A54F48), spotColor = Color(0x12A54F48))
             .clip(RoundedCornerShape(20.dp))
             .background(MedMitraColors.CoralPale)
+            .border(1.dp, Color(0xFFF0D9D4), RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 15.dp, vertical = 13.dp),
+            .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconBadge(Icons.Filled.Sos, tint = MedMitraColors.Coral, size = 40)
@@ -261,12 +268,12 @@ private fun SosPreview(onClick: () -> Unit) {
 
 @Composable
 private fun ShortcutCard(feature: Feature, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    PlainCard(modifier.heightIn(min = 102.dp), onClick = onClick) {
+    PlainCard(modifier.height(84.dp), onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(feature.icon, tint = feature.tint, size = 36)
-            Spacer(Modifier.width(9.dp))
+            IconBadge(feature.icon, tint = feature.tint, size = 32)
+            Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
-                Text(feature.shortTitle, style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(feature.shortTitle, style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp)
                 Text(feature.subtitle, style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, maxLines = 2, fontSize = 11.sp)
             }
         }

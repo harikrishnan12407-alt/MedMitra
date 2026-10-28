@@ -24,18 +24,17 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.Role
 import com.medmitra.app.ui.theme.MedMitraColors
 
-private val CardShape = RoundedCornerShape(22.dp)
-private val SmallShape = RoundedCornerShape(15.dp)
+private val CardShape = RoundedCornerShape(20.dp)
 
 @Composable
 fun FrostedCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = modifier
-            .shadow(5.dp, CardShape, ambientColor = Color(0x14264C3A), spotColor = Color(0x14264C3A))
+            .shadow(4.dp, CardShape, ambientColor = Color(0x18264C3A), spotColor = Color(0x18264C3A))
             .clip(CardShape)
-            .background(Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFF0F8F3))))
-            .border(BorderStroke(1.dp, Color(0xFFDDEBE2)), CardShape)
-            .padding(17.dp),
+            .background(Brush.linearGradient(listOf(Color(0xF7FFFFFF), Color(0xE8E7F5EC), Color(0xFFF4FAF6))))
+            .border(BorderStroke(1.dp, Color(0xFFD1E5D9)), CardShape)
+            .padding(14.dp),
         content = content
     )
 }
@@ -49,11 +48,11 @@ fun PlainCard(
     val clickModifier = if (onClick == null) modifier else modifier.clickable(role = Role.Button, onClick = onClick)
     Column(
         modifier = clickModifier
-            .shadow(2.dp, CardShape, ambientColor = Color(0x10264C3A), spotColor = Color(0x10264C3A))
+            .shadow(2.dp, CardShape, ambientColor = Color(0x14264C3A), spotColor = Color(0x14264C3A))
             .clip(CardShape)
-            .background(MedMitraColors.Surface)
-            .border(BorderStroke(1.dp, MedMitraColors.Divider.copy(alpha = .8f)), CardShape)
-            .padding(16.dp),
+            .background(Brush.linearGradient(listOf(MedMitraColors.Surface, Color(0xFFF0F7F2))))
+            .border(BorderStroke(1.dp, MedMitraColors.Divider.copy(alpha = .9f)), CardShape)
+            .padding(13.dp),
         content = content
     )
 }

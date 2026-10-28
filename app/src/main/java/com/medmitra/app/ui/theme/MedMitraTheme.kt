@@ -9,18 +9,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 object MedMitraColors {
-    val Background = Color(0xFFF5F9F6)
-    val Surface = Color(0xFFFFFFFF)
-    val SurfaceSoft = Color(0xFFEEF5F0)
-    val Mint = Color(0xFF2C9B7B)
+    val Background = Color(0xFFF3FAF6)
+    val Surface = Color(0xFFFCFEFD)
+    val SurfaceSoft = Color(0xFFEAF5EE)
+    val Mint = Color(0xFF329A79)
     val MintDark = Color(0xFF176B55)
-    val MintPale = Color(0xFFE2F4EB)
-    val Sage = Color(0xFF6D8178)
-    val Text = Color(0xFF20342D)
-    val TextSecondary = Color(0xFF66786F)
-    val Divider = Color(0xFFDCE7E0)
-    val Coral = Color(0xFFCB5D59)
-    val CoralPale = Color(0xFFFFEFED)
+    val MintPale = Color(0xFFDFF2E7)
+    val Sage = Color(0xFF687E73)
+    val Text = Color(0xFF1B352B)
+    val TextSecondary = Color(0xFF60776B)
+    val Divider = Color(0xFFD3E5DA)
+    val Coral = Color(0xFFC95D59)
+    val CoralPale = Color(0xFFFFF0ED)
     val Amber = Color(0xFF92662B)
     val AmberPale = Color(0xFFFFF3DD)
 }
@@ -51,13 +51,13 @@ fun MedMitraTheme(content: @Composable () -> Unit) {
             outline = colors.Divider
         ),
         typography = MaterialTheme.typography.copy(
-            headlineMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 26.sp, lineHeight = 32.sp),
-            headlineSmall = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 28.sp),
-            titleLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp),
-            titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 21.sp),
-            bodyLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp),
-            bodyMedium = TextStyle(fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 19.sp),
-            labelLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 13.sp, lineHeight = 18.sp)
+            headlineMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 25.sp, lineHeight = 31.sp, letterSpacing = (-.25).sp),
+            headlineSmall = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 27.sp, letterSpacing = (-.15).sp),
+            titleLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 22.sp, letterSpacing = (-.1).sp),
+            titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 19.sp),
+            bodyLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
+            bodyMedium = TextStyle(fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 17.sp),
+            labelLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 17.sp)
         ),
         content = content
     )
