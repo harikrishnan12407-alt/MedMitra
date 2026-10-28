@@ -169,7 +169,7 @@ object ReminderNotification {
             .setContentIntent(openPending)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             @Suppress("DEPRECATION")
-            builder.priority = Notification.PRIORITY_MAX
+            builder.setPriority(Notification.PRIORITY_MAX)
         }
         builder.addAction(
             Notification.Action.Builder(
