@@ -38,13 +38,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.medmitra.app.data.MedMitraDatabase
-import com.medmitra.app.ui.components.CenteredFeatureIcon
 import com.medmitra.app.ui.components.FrostedCard
 import com.medmitra.app.ui.components.IconBadge
 import com.medmitra.app.ui.components.InfoRow
 import com.medmitra.app.ui.components.PageHeader
 import com.medmitra.app.ui.components.PlainCard
-import com.medmitra.app.ui.components.PrimaryAction
 import com.medmitra.app.ui.components.SectionHeading
 import com.medmitra.app.ui.theme.MedMitraColors
 import com.medmitra.app.ui.theme.MedMitraTheme
@@ -69,7 +67,6 @@ class MainActivity : ComponentActivity() {
         setContent { MedMitraTheme { MedMitraApp(startDestination = startDestination) } }
     }
 }
-
 @Composable
 private fun MedMitraApp(startDestination: String = "home") {
     val nav = rememberNavController()
@@ -112,7 +109,7 @@ private fun MedMitraApp(startDestination: String = "home") {
         NavHost(navController = nav, startDestination = startDestination, modifier = Modifier.padding(innerPadding)) {
             composable("home") { HomeScreen(onOpen = { nav.navigate("feature/$it") }) }
             composable("history") { HistoryScreen() }
-            composable("profile") { ProfileScreen() }
+            composable("profile") { ProfileScreen(onOpen = { nav.navigate("feature/$it") }) }
             composable("feature/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { backStackEntry ->
                 FeatureScreen(
                     id = backStackEntry.arguments?.getString("id") ?: "reminder",
@@ -122,7 +119,6 @@ private fun MedMitraApp(startDestination: String = "home") {
         }
     }
 }
-
 private data class Feature(
     val id: String,
     val title: String,
@@ -152,14 +148,14 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
         item {
             Row(Modifier.fillMaxWidth().heightIn(min = 54.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Good morning, Ananya", style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
+                    Text("Welcome to MedMitra", style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
                     Text("Your care, at a glance", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
                 }
                 Box(
                     Modifier.size(40.dp).clip(CircleShape).background(MedMitraColors.MintPale),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("A", color = MedMitraColors.MintDark, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    Text("M", color = MedMitraColors.MintDark, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -199,7 +195,7 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
 
         item {
             Text(
-                "SOS messages and calls need your action. Fall monitoring is opt-in; voice reminders are not active.",
+                "SOS actions follow your saved consent settings. Fall monitoring and spoken reminders are opt-in.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MedMitraColors.TextSecondary,
                 fontSize = 11.sp,
@@ -281,9 +277,11 @@ private fun FeatureScreen(id: String, onBack: () -> Unit) {
         com.medmitra.app.fall.FallDetectionScreen(onBack = onBack)
         return
     }
+    if (id == "voice") {
+        com.medmitra.app.reminders.VoiceReminderScreen(onBack = onBack)
+        return
+    }
     val feature = features.firstOrNull { it.id == id }
-    var showInfo by remember { mutableStateOf(false) }
-
     Column(
         Modifier.fillMaxSize().background(MedMitraColors.Background)
             .verticalScroll(rememberScrollState())
@@ -292,24 +290,12 @@ private fun FeatureScreen(id: String, onBack: () -> Unit) {
         PageHeader(feature?.title ?: "MedMitra", onBack = onBack)
         Spacer(Modifier.height(8.dp))
         when (id) {
-            "voice" -> {
-                CenteredFeatureIcon(Icons.Filled.RecordVoiceOver)
-                Text("A reminder in your voice", style = MaterialTheme.typography.headlineSmall, color = MedMitraColors.Text, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                Text("Add a personal message to make your routine feel more familiar.", style = MaterialTheme.typography.bodyLarge, color = MedMitraColors.TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 7.dp, bottom = 17.dp))
-                PlainCard(Modifier.fillMaxWidth()) {
-                    InfoRow(Icons.Filled.GraphicEq, "Sample reminder", "“Ananya, it’s time for your evening medicine.”")
-                }
-                Spacer(Modifier.height(15.dp))
-                PrimaryAction("Try a sample recording", icon = Icons.Filled.Mic, modifier = Modifier.fillMaxWidth()) { showInfo = true }
-                PreviewNote("Voice recording and playback are not implemented.")
-            }
             "history" -> HistoryContent()
             else -> Unit
         }
         Spacer(Modifier.height(22.dp))
     }
 
-    if (showInfo) PreviewDialog(id = id, onDismiss = { showInfo = false })
 }
 
 @Composable
@@ -341,6 +327,10 @@ private fun HistoryContent() {
                 "FALL_ALERT_PENDING" -> "Possible fall alert"
                 "FALL_ALERT_CANCELLED" -> "Fall alert acknowledged"
                 "FALL_ALERT_UNACKNOWLEDGED" -> "Fall alert unanswered"
+                "FALL_DEMO_ALERT" -> "Safe fall demo started"
+                "FALL_DEMO_ACKNOWLEDGED" -> "Safe fall demo acknowledged"
+                "FALL_DEMO_CANCELLED" -> "Safe fall demo cancelled"
+                "FALL_DEMO_COMPLETE" -> "Safe fall demo completed"
                 else -> event.eventType.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
             }
             PlainCard(Modifier.fillMaxWidth()) {
@@ -356,38 +346,15 @@ private fun HistoryContent() {
 }
 
 @Composable
-private fun ProfileScreen() {
+private fun ProfileScreen(onOpen: (String) -> Unit) {
     Column(Modifier.fillMaxSize().background(MedMitraColors.Background).padding(horizontal = 18.dp)) {
         PageHeader("Profile")
         Spacer(Modifier.height(12.dp))
-        PlainCard(Modifier.fillMaxWidth()) { InfoRow(Icons.Filled.Person, "Ananya Sharma", "Care plan · Personal") }
-        Spacer(Modifier.height(11.dp))
-        PlainCard(Modifier.fillMaxWidth()) { InfoRow(Icons.Filled.Settings, "Preferences", "Notifications · Accessibility", tint = MedMitraColors.Sage) }
+        Text("On-device app settings", style = MaterialTheme.typography.bodyLarge, color = MedMitraColors.TextSecondary)
+        listOf("reminder" to "Medicine reminders", "voice" to "Voice reminder message", "contacts" to "Emergency setup", "fall" to "Fall safety").forEach { (route, label) ->
+            PlainCard(Modifier.fillMaxWidth(), onClick = { onOpen(route) }) { InfoRow(Icons.Filled.Settings, label, "Manage local settings", tint = MedMitraColors.Sage) }
+        }
         Spacer(Modifier.height(18.dp))
-        Text("MedMitra preview · Version 1.0", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
+        Text("MedMitra · Version 1.0", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
     }
-}
-
-@Composable
-private fun PreviewNote(text: String) {
-    Text(text, style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 13.dp, bottom = 5.dp))
-}
-
-@Composable
-private fun PreviewDialog(id: String, onDismiss: () -> Unit) {
-    val sos = id == "sos"
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = MedMitraColors.Surface,
-        titleContentColor = MedMitraColors.Text,
-        textContentColor = MedMitraColors.TextSecondary,
-        title = { Text(if (sos) "SOS preview only" else "Coming soon", fontWeight = FontWeight.SemiBold) },
-        text = {
-            Text(
-                if (sos) "This preview does not contact anyone. If you need help now, use your phone’s emergency calling feature."
-                else "This is a sample interaction and is not connected to a real service yet."
-            )
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Got it", color = MedMitraColors.MintDark) } }
-    )
 }

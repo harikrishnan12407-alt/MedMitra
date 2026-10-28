@@ -31,6 +31,7 @@ class MedicineAlarmReceiver : BroadcastReceiver() {
                 if (medicine != null && medicine.enabled) {
                     if (!isSnooze) ReminderScheduler(context).scheduleDaily(medicine)
                     ReminderNotification.show(context, medicine, isSnooze)
+                    if (VoiceReminderPreferences.enabled(context)) VoiceReminderSpeaker.speak(context, VoiceReminderPreferences.message(context))
                 }
             } finally {
                 pending.finish()

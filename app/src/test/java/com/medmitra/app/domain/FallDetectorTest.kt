@@ -1,34 +1,48 @@
 package com.medmitra.app.domain
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FallDetectorTest {
-    @Test fun freeFallImpactAndStablePeriodRaisesOneCandidate() {
+    @Test fun impactNeedsPriorFreeFallStablePeriodAndOrientationChange() {
         val detector = FallDetector()
-        assertFalse(detector.addSample(0, 1.0f))
-        assertFalse(detector.addSample(300, 25.0f))
-        assertFalse(detector.addSample(800, 9.8f))
-        assertFalse(detector.addSample(1_300, 9.7f))
-        assertFalse(detector.addSample(1_800, 9.8f))
-        assertTrue(detector.addSample(3_300, 9.8f))
-        assertFalse(detector.addSample(3_500, 9.8f))
+        assertFalse(detector.addSample(0, 1f, orientationDegrees = 0f))
+        assertFalse(detector.addSample(300, 25f, orientationDegrees = 0f))
+        assertFalse(detector.addSample(800, 9.8f, 0.1f, 5f))
+        assertFalse(detector.addSample(1_300, 9.7f, 0.1f, 20f))
+        assertFalse(detector.addSample(1_800, 9.8f, 0.1f, 35f))
+        assertTrue(detector.addSample(3_300, 9.8f, 0.1f, 50f))
+        assertFalse(detector.addSample(3_500, 9.8f, 0.1f, 50f))
     }
 
-    @Test fun impactWithoutPriorFreeFallDoesNotTrigger() {
+    @Test fun stableImpactWithoutOrientationChangeDoesNotTrigger() {
         val detector = FallDetector()
-        assertFalse(detector.addSample(0, 25.0f))
-        assertFalse(detector.addSample(3_500, 9.8f))
+        detector.addSample(0, 1f)
+        detector.addSample(300, 25f)
+        detector.addSample(700, 9.8f, 0.1f, 2f)
+        detector.addSample(1_200, 9.7f, 0.1f, 2f)
+        detector.addSample(1_700, 9.8f, 0.1f, 2f)
+        assertFalse(detector.addSample(3_300, 9.8f, 0.1f, 2f))
     }
 
-    @Test fun unstablePostImpactMotionDoesNotTrigger() {
+    @Test fun unstableMovementAndLateImpactDoNotTrigger() {
         val detector = FallDetector()
-        detector.addSample(0, 1.0f)
-        detector.addSample(300, 25.0f)
-        detector.addSample(700, 4f)
-        detector.addSample(1_200, 18f)
-        detector.addSample(1_700, 2f)
-        assertFalse(detector.addSample(3_300, 13f))
+        detector.addSample(0, 1f)
+        assertFalse(detector.addSample(1_700, 25f, 0.1f, 60f))
+        detector.addSample(2_000, 1f)
+        detector.addSample(2_100, 25f, 0.1f, 60f)
+        detector.addSample(2_700, 4f, 1.2f, 80f)
+        detector.addSample(3_200, 18f, 1.2f, 90f)
+        detector.addSample(3_700, 2f, 1.2f, 100f)
+        assertFalse(detector.addSample(5_100, 13f, 1.2f, 110f))
+    }
+
+    @Test fun sensitivityProfilesAreOrderedForImpactAndOrientation() {
+        assertTrue(FallSensitivity.LOW.impactThreshold > FallSensitivity.MEDIUM.impactThreshold)
+        assertTrue(FallSensitivity.MEDIUM.impactThreshold > FallSensitivity.HIGH.impactThreshold)
+        assertTrue(FallSensitivity.LOW.orientationChangeDegrees > FallSensitivity.HIGH.orientationChangeDegrees)
+        assertEquals(FallSensitivity.LOW, FallDetectionConfig().sensitivity)
     }
 }

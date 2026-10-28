@@ -61,4 +61,26 @@ class EmergencyWorkflowTest {
         assertEquals(HandoffStatus.OUTCOME_UNKNOWN, flow.snapshot.callStatus)
         assertEquals(EmergencyStage.COMPLETE, flow.snapshot.stage)
     }
+
+    @Test fun automaticActionsCompleteOnlyAfterCountdownAndKeepOutcomesUnknown() {
+        val flow = EmergencyWorkflow()
+        flow.start(2_000)
+        assertEquals(EmergencyStage.LOCATION_LOOKUP, flow.tick(7_000).stage)
+        val done = flow.completeAutomaticActions("AVAILABLE", HandoffStatus.OUTCOME_UNKNOWN, HandoffStatus.OUTCOME_UNKNOWN)
+        assertEquals(EmergencyStage.COMPLETE, done.stage)
+        assertEquals(HandoffStatus.OUTCOME_UNKNOWN, done.smsStatus)
+        assertEquals(HandoffStatus.OUTCOME_UNKNOWN, done.callStatus)
+        assertEquals("AVAILABLE", done.locationStatus)
+    }
+
+    @Test fun automaticActionsCannotCompleteBeforeCountdownEnds() {
+        val flow = EmergencyWorkflow()
+        flow.start(0)
+        try {
+            flow.completeAutomaticActions("NOT_SHARED", HandoffStatus.NOT_ATTEMPTED, HandoffStatus.NOT_ATTEMPTED)
+            throw AssertionError("Expected early emergency actions to be rejected")
+        } catch (_: IllegalStateException) { }
+        assertTrue(flow.cancel())
+        assertEquals(EmergencyStage.CANCELLED, flow.snapshot.stage)
+    }
 }

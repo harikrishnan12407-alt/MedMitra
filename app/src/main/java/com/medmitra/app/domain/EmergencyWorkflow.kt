@@ -92,4 +92,10 @@ class EmergencyWorkflow(private val countdownSeconds: Int = 5) {
         snapshot = snapshot.copy(stage = EmergencyStage.COMPLETE)
         return snapshot
     }
+
+    fun completeAutomaticActions(locationStatus: String, smsStatus: HandoffStatus, callStatus: HandoffStatus): EmergencyWorkflowSnapshot {
+        check(snapshot.stage == EmergencyStage.LOCATION_LOOKUP)
+        snapshot = snapshot.copy(stage = EmergencyStage.COMPLETE, locationStatus = locationStatus, smsStatus = smsStatus, callStatus = callStatus)
+        return snapshot
+    }
 }

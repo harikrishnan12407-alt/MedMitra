@@ -27,4 +27,10 @@ class ReminderTimeTest {
             throw AssertionError("Expected invalid hour to be rejected")
         } catch (_: IllegalArgumentException) { }
     }
+
+    @Test fun selectedClockTimeIsPersistableAndSchedulesAtExactMinute() {
+        val now = ZonedDateTime.of(2026, 1, 2, 7, 0, 0, 0, zone)
+        val expected = ZonedDateTime.of(2026, 1, 2, 13, 5, 0, 0, zone)
+        assertEquals(expected.toInstant().toEpochMilli(), ReminderTime.nextOccurrence(now.toInstant().toEpochMilli(), 13, 5, zone))
+    }
 }

@@ -30,6 +30,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -228,11 +230,14 @@ private fun MedicineScheduleItem(
 }
 
 @Composable
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 private fun MedicineEditor(onDismiss: () -> Unit, onSave: (String, String, Int, Int) -> Unit) {
     var name by remember { mutableStateOf("") }
     var dosage by remember { mutableStateOf("") }
-    var time by remember { mutableStateOf("09:00") }
-    val parsedTime = remember(time) { runCatching { LocalTime.parse(time) }.getOrNull() }
+    var hour by remember { mutableStateOf(9) }
+    var minute by remember { mutableStateOf(0) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    val timeState = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = false)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("New medicine reminder") },
@@ -240,16 +245,32 @@ private fun MedicineEditor(onDismiss: () -> Unit, onSave: (String, String, Int, 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(name, { name = it }, label = { Text("Medicine name") }, singleLine = true)
                 OutlinedTextField(dosage, { dosage = it }, label = { Text("Dose, e.g. 1 tablet") }, singleLine = true)
-                OutlinedTextField(time, { time = it }, label = { Text("Time (24-hour, HH:mm)") }, singleLine = true)
-                if (parsedTime == null) Text("Enter a valid time such as 08:30.", color = MedMitraColors.Coral)
+                OutlinedButton(onClick = { showTimePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Reminder time · ${LocalTime.of(hour, minute).format(DateTimeFormatter.ofPattern("h:mm a"))}")
+                }
             }
         },
         confirmButton = {
             TextButton(
-                enabled = name.isNotBlank() && dosage.isNotBlank() && parsedTime != null,
-                onClick = { parsedTime?.let { onSave(name.trim(), dosage.trim(), it.hour, it.minute) } }
+                enabled = name.isNotBlank() && dosage.isNotBlank(),
+                onClick = { onSave(name.trim(), dosage.trim(), hour, minute) }
             ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+    if (showTimePicker) {
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("Choose reminder time") },
+            text = { TimePicker(state = timeState) },
+            confirmButton = {
+                TextButton(onClick = {
+                    hour = timeState.hour
+                    minute = timeState.minute
+                    showTimePicker = false
+                }) { Text("Set time") }
+            },
+            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Cancel") } }
+        )
+    }
 }
