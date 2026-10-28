@@ -45,7 +45,6 @@ import com.medmitra.app.ui.components.PageHeader
 import com.medmitra.app.ui.components.PlainCard
 import com.medmitra.app.ui.components.PrimaryAction
 import com.medmitra.app.ui.components.SectionHeading
-import com.medmitra.app.ui.components.SoftPill
 import com.medmitra.app.ui.theme.MedMitraColors
 import com.medmitra.app.ui.theme.MedMitraTheme
 
@@ -60,12 +59,13 @@ class MainActivity : ComponentActivity() {
             isAppearanceLightStatusBars = true
             isAppearanceLightNavigationBars = true
         }
-        setContent { MedMitraTheme { MedMitraApp() } }
+        val openReminders = intent.getBooleanExtra(com.medmitra.app.reminders.ReminderScheduler.EXTRA_OPEN_REMINDERS, false)
+        setContent { MedMitraTheme { MedMitraApp(openReminders = openReminders) } }
     }
 }
 
 @Composable
-private fun MedMitraApp() {
+private fun MedMitraApp(openReminders: Boolean = false) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "home"
@@ -103,7 +103,7 @@ private fun MedMitraApp() {
             }
         }
     ) { innerPadding ->
-        NavHost(navController = nav, startDestination = "home", modifier = Modifier.padding(innerPadding)) {
+        NavHost(navController = nav, startDestination = if (openReminders) "feature/reminder" else "home", modifier = Modifier.padding(innerPadding)) {
             composable("home") { HomeScreen(onOpen = { nav.navigate("feature/$it") }) }
             composable("history") { HistoryScreen() }
             composable("profile") { ProfileScreen() }
@@ -137,7 +137,6 @@ private val features = listOf(
 
 @Composable
 private fun HomeScreen(onOpen: (String) -> Unit) {
-    var vitaminTaken by rememberSaveable { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFF0FAF4), MedMitraColors.Background, Color(0xFFF8FBF9))))) {
       LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -163,30 +162,9 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
             SectionHeading("Today’s medicines", "See schedule") { onOpen("reminder") }
             Spacer(Modifier.height(8.dp))
             FrostedCard(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("NEXT REMINDER", color = MedMitraColors.Sage, fontSize = 9.sp, letterSpacing = 1.1.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    SoftPill("9:00 AM")
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    IconBadge(Icons.Filled.Medication, tint = MedMitraColors.MintDark, size = 40)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Vitamin D3", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-                        Text("1 capsule · after breakfast", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider(color = MedMitraColors.Divider)
-                Spacer(Modifier.height(7.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Today · Morning", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, modifier = Modifier.weight(1f))
-                    if (vitaminTaken) {
-                        SoftPill("Taken", background = MedMitraColors.MintPale)
-                    } else {
-                        PrimaryAction("Mark as taken", icon = Icons.Filled.Check, onClick = { vitaminTaken = true })
-                    }
-                }
+                Text("Your saved medicine schedule", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
+                Text("Manage reminders and mark doses taken.", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 5.dp))
+                TextButton(onClick = { onOpen("reminder") }) { Text("Open reminders", color = MedMitraColors.MintDark) }
             }
         }
 
@@ -234,8 +212,8 @@ private fun MedicinePreviewCard(onClick: () -> Unit) {
             IconBadge(Icons.Filled.Medication, tint = MedMitraColors.Amber, size = 42)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Blood pressure tablet", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-                Text("1 tablet · Today, 8:00 PM", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
+                Text("Medicine reminders", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
+                Text("View your saved schedule", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
             }
             Icon(Icons.Filled.ChevronRight, contentDescription = "View medicine schedule", tint = MedMitraColors.Sage)
         }
@@ -282,9 +260,12 @@ private fun ShortcutCard(feature: Feature, modifier: Modifier = Modifier, onClic
 
 @Composable
 private fun FeatureScreen(id: String, onBack: () -> Unit) {
+    if (id == "reminder") {
+        com.medmitra.app.reminders.MedicineReminderScreen(onBack = onBack)
+        return
+    }
     val feature = features.firstOrNull { it.id == id }
     var fallPreviewEnabled by rememberSaveable { mutableStateOf(false) }
-    var vitaminTaken by rememberSaveable { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
 
     Column(
@@ -295,16 +276,6 @@ private fun FeatureScreen(id: String, onBack: () -> Unit) {
         PageHeader(feature?.title ?: "MedMitra", onBack = onBack)
         Spacer(Modifier.height(8.dp))
         when (id) {
-            "reminder" -> {
-                Text("Today’s plan", style = MaterialTheme.typography.headlineSmall, color = MedMitraColors.Text)
-                Text("Your sample medicine schedule", style = MaterialTheme.typography.bodyLarge, color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
-                MedicineScheduleCard("Vitamin D3", "1 capsule · after breakfast", "9:00 AM", !vitaminTaken) { vitaminTaken = true }
-                Spacer(Modifier.height(11.dp))
-                MedicineScheduleCard("Blood pressure tablet", "1 tablet · evening", "8:00 PM", false) { showInfo = true }
-                Spacer(Modifier.height(14.dp))
-                PrimaryAction("Add a reminder", icon = Icons.Filled.Add, modifier = Modifier.fillMaxWidth()) { showInfo = true }
-                PreviewNote("Sample schedule only · reminders are not scheduled by this preview.")
-            }
             "voice" -> {
                 CenteredFeatureIcon(Icons.Filled.RecordVoiceOver)
                 Text("A reminder in your voice", style = MaterialTheme.typography.headlineSmall, color = MedMitraColors.Text, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
@@ -377,31 +348,6 @@ private fun FeatureScreen(id: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun MedicineScheduleCard(name: String, dosage: String, time: String, canMarkTaken: Boolean, onTaken: () -> Unit) {
-    PlainCard(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(Icons.Filled.Medication, tint = MedMitraColors.MintDark, size = 42)
-            Spacer(Modifier.width(11.dp))
-            Column(Modifier.weight(1f)) {
-                Text(name, style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-                Text(dosage, style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
-            }
-            SoftPill(time)
-        }
-        Spacer(Modifier.height(11.dp))
-        if (canMarkTaken) {
-            OutlinedButton(onClick = onTaken, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(14.dp)) {
-                Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(17.dp))
-                Spacer(Modifier.width(7.dp))
-                Text("Mark as taken")
-            }
-        } else {
-            Text("Sample reminder", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.Sage)
-        }
-    }
-}
-
-@Composable
 private fun HistoryScreen() {
     Column(Modifier.fillMaxSize().background(MedMitraColors.Background).padding(horizontal = 18.dp)) {
         PageHeader("Activity")
@@ -414,12 +360,10 @@ private fun HistoryScreen() {
 private fun HistoryContent() {
     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
         Text("Recent activity", style = MaterialTheme.typography.headlineSmall, color = MedMitraColors.Text)
-        Text("A simple record of your care routine", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
-        Spacer(Modifier.height(1.dp))
-        PlainCard(Modifier.fillMaxWidth()) { InfoRow(Icons.Filled.CheckCircle, "Medicine marked taken", "Today · 8:02 AM · Vitamin D3") }
-        PlainCard(Modifier.fillMaxWidth()) { InfoRow(Icons.Filled.Notifications, "Reminder preview", "Yesterday · 8:00 PM", tint = MedMitraColors.Amber) }
-        PlainCard(Modifier.fillMaxWidth()) { InfoRow(Icons.Filled.Favorite, "Wellness check-in", "Monday · You were feeling good") }
-        PreviewNote("Sample history only · no emergency events have been recorded.")
+        PlainCard(Modifier.fillMaxWidth()) {
+            Text("Activity history is not connected yet", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
+            Text("Medicine and emergency events will appear here when history is implemented.", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 4.dp))
+        }
     }
 }
 

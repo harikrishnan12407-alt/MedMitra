@@ -1,0 +1,130 @@
+package com.medmitra.app.data
+
+import android.content.Context
+import androidx.room.Dao
+import androidx.room.Database
+import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
+
+@Entity(tableName = "medicines")
+data class MedicineSchedule(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val dosage: String,
+    val hour: Int,
+    val minute: Int,
+    val enabled: Boolean = true,
+    val lastTakenAtMillis: Long? = null
+)
+
+@Entity(tableName = "emergency_contacts")
+data class EmergencyContact(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val phoneE164: String,
+    val enabled: Boolean = true
+)
+
+@Entity(tableName = "emergency_history")
+data class EmergencyHistoryEvent(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val occurredAtMillis: Long,
+    val eventType: String,
+    val locationStatus: String = "NOT_REQUESTED",
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val locationAccuracyMeters: Float? = null,
+    val smsAttemptStatus: String = "NOT_ATTEMPTED",
+    val callAttemptStatus: String = "NOT_ATTEMPTED",
+    val notes: String = ""
+)
+
+@Dao
+interface MedicineDao {
+    @Query("SELECT * FROM medicines ORDER BY hour, minute, name")
+    fun observeAll(): Flow<List<MedicineSchedule>>
+
+    @Query("SELECT * FROM medicines WHERE enabled = 1 ORDER BY hour, minute")
+    suspend fun getEnabled(): List<MedicineSchedule>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun save(schedule: MedicineSchedule): Long
+
+    @Update
+    suspend fun update(schedule: MedicineSchedule)
+
+    @Query("UPDATE medicines SET lastTakenAtMillis = :takenAtMillis WHERE id = :id")
+    suspend fun markTaken(id: Long, takenAtMillis: Long)
+
+    @Query("DELETE FROM medicines WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("SELECT * FROM medicines WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): MedicineSchedule?
+}
+
+@Dao
+interface EmergencyContactDao {
+    @Query("SELECT * FROM emergency_contacts WHERE enabled = 1 ORDER BY name COLLATE NOCASE")
+    fun observeAll(): Flow<List<EmergencyContact>>
+
+    @Query("SELECT * FROM emergency_contacts WHERE enabled = 1 ORDER BY name COLLATE NOCASE")
+    suspend fun getEnabled(): List<EmergencyContact>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun save(contact: EmergencyContact): Long
+
+    @Update
+    suspend fun update(contact: EmergencyContact)
+
+    @Query("DELETE FROM emergency_contacts WHERE id = :id")
+    suspend fun delete(id: Long)
+}
+
+@Dao
+interface EmergencyHistoryDao {
+    @Query("SELECT * FROM emergency_history ORDER BY occurredAtMillis DESC")
+    fun observeAll(): Flow<List<EmergencyHistoryEvent>>
+
+    @Insert
+    suspend fun insert(event: EmergencyHistoryEvent): Long
+
+    @Query("UPDATE emergency_history SET locationStatus = :status, latitude = :latitude, longitude = :longitude, locationAccuracyMeters = :accuracyMeters WHERE id = :id")
+    suspend fun updateLocation(id: Long, status: String, latitude: Double?, longitude: Double?, accuracyMeters: Float?)
+
+    @Query("UPDATE emergency_history SET smsAttemptStatus = :status WHERE id = :id")
+    suspend fun updateSmsAttempt(id: Long, status: String)
+
+    @Query("UPDATE emergency_history SET callAttemptStatus = :status WHERE id = :id")
+    suspend fun updateCallAttempt(id: Long, status: String)
+}
+
+@Database(
+    entities = [MedicineSchedule::class, EmergencyContact::class, EmergencyHistoryEvent::class],
+    version = 1,
+    exportSchema = false
+)
+abstract class MedMitraDatabase : RoomDatabase() {
+    abstract fun medicines(): MedicineDao
+    abstract fun contacts(): EmergencyContactDao
+    abstract fun history(): EmergencyHistoryDao
+
+    companion object {
+        @Volatile private var instance: MedMitraDatabase? = null
+
+        fun get(context: Context): MedMitraDatabase = instance ?: synchronized(this) {
+            instance ?: Room.databaseBuilder(
+                context.applicationContext,
+                MedMitraDatabase::class.java,
+                "medmitra-local.db"
+            ).build().also { instance = it }
+        }
+    }
+}
