@@ -43,6 +43,7 @@ import com.medmitra.app.ui.theme.MedMitraTheme
 
 class MedicineAlarmActivity : ComponentActivity() {
     private var intentId: Long = -1L
+    private var doseAtMillis: Long = 0L
     private val dismissReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: android.content.Context, intent: Intent) {
             if (intent.getLongExtra(ReminderScheduler.EXTRA_MEDICINE_ID, -1L) == intentId) finish()
@@ -60,13 +61,14 @@ class MedicineAlarmActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val medicineId = intent.getLongExtra(ReminderScheduler.EXTRA_MEDICINE_ID, -1L)
         intentId = medicineId
+        doseAtMillis = intent.getLongExtra(ReminderScheduler.EXTRA_DOSE_AT_MILLIS, 0L)
         setContent {
             MedMitraTheme {
                 val medicine by medicineState(medicineId)
                 BackHandler(enabled = true) { }
                 MedicineAlarmContent(
                     medicine = medicine,
-                    snoozeMinutes = MedicineReminderPreferences.snoozeMinutes(this),
+                    snoozeMinutes = 5,
                     onTaken = { finishWithAction(medicineId, ReminderScheduler.ACTION_MARK_TAKEN) },
                     onSnooze = { finishWithAction(medicineId, ReminderScheduler.ACTION_SNOOZE) }
                 )
@@ -90,7 +92,8 @@ class MedicineAlarmActivity : ComponentActivity() {
         sendBroadcast(Intent(this, MedicineActionReceiver::class.java)
             .setAction(action)
             .putExtra(ReminderScheduler.EXTRA_MEDICINE_ID, id)
-            .putExtra(ReminderScheduler.EXTRA_ACTION, action))
+            .putExtra(ReminderScheduler.EXTRA_ACTION, action)
+            .putExtra(ReminderScheduler.EXTRA_DOSE_AT_MILLIS, doseAtMillis))
         finish()
     }
 

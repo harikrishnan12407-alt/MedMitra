@@ -24,7 +24,8 @@ data class MedicineSchedule(
     val enabled: Boolean = true,
     val lastTakenAtMillis: Long? = null,
     @ColumnInfo(defaultValue = "''") val instructions: String = "",
-    val snoozedUntilMillis: Long? = null
+    val snoozedUntilMillis: Long? = null,
+    val snoozedDoseAtMillis: Long? = null
 )
 
 @Entity(tableName = "medicine_dose_history")
@@ -80,6 +81,9 @@ interface MedicineDao {
     @Query("UPDATE medicines SET snoozedUntilMillis = :untilMillis WHERE id = :id")
     suspend fun setSnoozedUntil(id: Long, untilMillis: Long?)
 
+    @Query("UPDATE medicines SET snoozedUntilMillis = :untilMillis, snoozedDoseAtMillis = :doseAtMillis WHERE id = :id")
+    suspend fun setSnooze(id: Long, untilMillis: Long?, doseAtMillis: Long?)
+
     @Query("DELETE FROM medicines WHERE id = :id")
     suspend fun delete(id: Long)
 
@@ -94,6 +98,9 @@ interface MedicineDoseHistoryDao {
 
     @Insert
     suspend fun insert(event: MedicineDoseEvent)
+
+    @Query("SELECT EXISTS(SELECT 1 FROM medicine_dose_history WHERE medicineId = :medicineId AND scheduledAtMillis = :scheduledAtMillis AND status = 'TAKEN')")
+    suspend fun wasTaken(medicineId: Long, scheduledAtMillis: Long): Boolean
 }
 
 @Dao
@@ -146,7 +153,7 @@ interface EmergencyHistoryDao {
 
 @Database(
     entities = [MedicineSchedule::class, MedicineDoseEvent::class, EmergencyContact::class, EmergencyHistoryEvent::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class MedMitraDatabase : RoomDatabase() {
@@ -163,7 +170,7 @@ abstract class MedMitraDatabase : RoomDatabase() {
                 context.applicationContext,
                 MedMitraDatabase::class.java,
                 "medmitra-local.db"
-            ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
         }
 
         private val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
@@ -171,6 +178,12 @@ abstract class MedMitraDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE medicines ADD COLUMN instructions TEXT NOT NULL DEFAULT ''")
                 database.execSQL("ALTER TABLE medicines ADD COLUMN snoozedUntilMillis INTEGER")
                 database.execSQL("CREATE TABLE IF NOT EXISTS medicine_dose_history (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, medicineId INTEGER NOT NULL, medicineName TEXT NOT NULL, dosage TEXT NOT NULL, scheduledAtMillis INTEGER NOT NULL, actionAtMillis INTEGER NOT NULL, status TEXT NOT NULL)")
+            }
+        }
+
+        private val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE medicines ADD COLUMN snoozedDoseAtMillis INTEGER")
             }
         }
     }

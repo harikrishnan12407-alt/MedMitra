@@ -32,8 +32,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -76,14 +74,17 @@ fun MedicineReminderScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var showEditor by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<MedicineSchedule?>(null) }
-    var snoozeMenu by remember { mutableStateOf(false) }
     var notificationGranted by remember {
         mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
     }
+    var fullScreenGranted by remember { mutableStateOf(fullScreenAlarmAccess(context)) }
+    var alarmChannelImportance by remember { mutableStateOf(alarmChannelImportance(context)) }
     var exactAlarmsAllowed by remember {
         mutableStateOf(Build.VERSION.SDK_INT < 31 || context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms())
     }
     LaunchedEffect(Unit) {
+        ReminderNotification.ensureReminderChannel(context)
+        alarmChannelImportance = alarmChannelImportance(context)
         withContext(Dispatchers.IO) { rescheduleEnabledMedicines(context, database) }
     }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -94,6 +95,8 @@ fun MedicineReminderScreen(onBack: () -> Unit) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 notificationGranted = NotificationManagerCompat.from(context).areNotificationsEnabled()
+                fullScreenGranted = fullScreenAlarmAccess(context)
+                alarmChannelImportance = alarmChannelImportance(context)
                 val exactAccessNow = Build.VERSION.SDK_INT < 31 || context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
                 if (exactAlarmsAllowed != exactAccessNow) {
                     exactAlarmsAllowed = exactAccessNow
@@ -146,15 +149,25 @@ fun MedicineReminderScreen(onBack: () -> Unit) {
         }
         PlainCard(Modifier.fillMaxWidth()) {
             Text("Alarm experience", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
-            Text("Alarms use a looping alert sound and optional spoken reminder. A full-screen alarm appears only when Android permits it; otherwise use its notification actions.", color = MedMitraColors.TextSecondary)
-            if (Build.VERSION.SDK_INT >= 34 && !context.getSystemService(android.app.NotificationManager::class.java).canUseFullScreenIntent()) {
-                TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).setData(Uri.parse("package:${context.packageName}"))) }) { Text("Allow full-screen alarms") }
+            Text("Alarm sound and optional speech repeat until you choose Taken or Snooze. Snooze is 5 minutes. Android may show the notification instead of opening the alarm screen, especially while the phone is already in use.", color = MedMitraColors.TextSecondary)
+            val channelReady = Build.VERSION.SDK_INT < 26 || alarmChannelImportance >= android.app.NotificationManager.IMPORTANCE_HIGH
+            Text(
+                when {
+                    !notificationGranted -> "Full-screen alarm unavailable: notifications are disabled."
+                    !fullScreenGranted -> "Full-screen access is off. Android will keep the notification as fallback."
+                    !channelReady -> "Medicine notification channel is below High importance."
+                    else -> "Full-screen access and High notification importance are enabled. Android may still show a heads-up alert while the screen is in use."
+                },
+                color = MedMitraColors.TextSecondary,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+            if (Build.VERSION.SDK_INT >= 34 && !fullScreenGranted) {
+                TextButton(onClick = {
+                    openReminderSettings(context, Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+                }) { Text("Allow full-screen alarms") }
             }
-            Column {
-                OutlinedButton(onClick = { snoozeMenu = true }, modifier = Modifier.fillMaxWidth()) { Text("Snooze interval · ${MedicineReminderPreferences.snoozeMinutes(context)} minutes") }
-                DropdownMenu(expanded = snoozeMenu, onDismissRequest = { snoozeMenu = false }) {
-                com.medmitra.app.domain.SnoozeIntervals.optionsMinutes.forEach { mins -> DropdownMenuItem(text = { Text("$mins minutes") }, onClick = { MedicineReminderPreferences.setSnoozeMinutes(context, mins); snoozeMenu = false }) }
-                }
+            if (!channelReady) {
+                TextButton(onClick = { openChannelSettings(context) }) { Text("Open medicine notification settings") }
             }
         }
         if (schedules.isEmpty()) {
@@ -219,7 +232,32 @@ fun MedicineReminderScreen(onBack: () -> Unit) {
 
 private suspend fun rescheduleEnabledMedicines(context: android.content.Context, database: MedMitraDatabase) {
     val scheduler = ReminderScheduler(context)
-    database.medicines().getEnabled().forEach { schedule -> scheduler.scheduleDaily(schedule) }
+    database.medicines().getEnabled().forEach { schedule ->
+        scheduler.scheduleDaily(schedule)
+        schedule.snoozedUntilMillis?.let { until -> scheduler.scheduleSnooze(schedule.id, (until - System.currentTimeMillis()).coerceAtLeast(1_000L), schedule.snoozedDoseAtMillis ?: (until - ReminderScheduler.SNOOZE_DELAY_MILLIS)) }
+    }
+}
+
+private fun fullScreenAlarmAccess(context: android.content.Context): Boolean = Build.VERSION.SDK_INT < 34 ||
+    context.getSystemService(android.app.NotificationManager::class.java).canUseFullScreenIntent()
+
+private fun alarmChannelImportance(context: android.content.Context): Int = if (Build.VERSION.SDK_INT >= 26) {
+    context.getSystemService(android.app.NotificationManager::class.java)
+        .getNotificationChannel(ReminderScheduler.CHANNEL_ID)?.importance ?: android.app.NotificationManager.IMPORTANCE_NONE
+} else android.app.NotificationManager.IMPORTANCE_HIGH
+
+private fun openReminderSettings(context: android.content.Context, action: String) {
+    runCatching {
+        context.startActivity(Intent(action).setData(Uri.parse("package:${context.packageName}")))
+    }
+}
+
+private fun openChannelSettings(context: android.content.Context) {
+    if (Build.VERSION.SDK_INT >= 26) runCatching {
+        context.startActivity(Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            .putExtra(Settings.EXTRA_CHANNEL_ID, ReminderScheduler.CHANNEL_ID))
+    }
 }
 
 @Composable
