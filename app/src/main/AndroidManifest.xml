@@ -6,7 +6,10 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
@@ -34,7 +37,7 @@
         android:allowBackup="true"
         android:label="MedMitra"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/Theme.MedMitra.Splash">
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -43,12 +46,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".reminders.MedicineAlarmActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.MedMitra" />
         <receiver
             android:name=".reminders.MedicineAlarmReceiver"
             android:exported="false" />
         <receiver
             android:name=".reminders.MedicineActionReceiver"
             android:exported="false" />
+        <service
+            android:name=".reminders.MedicineAlarmService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <receiver
             android:name=".reminders.ReminderRescheduleReceiver"
             android:enabled="true"

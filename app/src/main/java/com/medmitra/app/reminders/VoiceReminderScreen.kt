@@ -3,6 +3,7 @@ package com.medmitra.app.reminders
 import android.content.Intent
 import android.speech.tts.TextToSpeech
 import android.speech.tts.TextToSpeech.Engine
+import android.speech.tts.UtteranceProgressListener
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,8 +28,8 @@ import com.medmitra.app.ui.components.PageHeader
 import com.medmitra.app.ui.components.PlainCard
 import com.medmitra.app.ui.theme.MedMitraColors
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicReference
 import android.os.Handler
+import android.os.Looper
 
 object VoiceReminderPreferences {
     private const val FILE = "voice_reminders"
@@ -42,40 +43,63 @@ object VoiceReminderPreferences {
 }
 
 object VoiceReminderSpeaker {
-    private val activeSpeaker = AtomicReference<TextToSpeech?>()
-    fun speak(context: android.content.Context, message: String) {
-        if (message.isBlank()) return
-        activeSpeaker.getAndSet(null)?.let { it.stop(); it.shutdown() }
-        val reference = AtomicReference<TextToSpeech?>()
-        val tts = runCatching {
-            TextToSpeech(context.applicationContext) { result ->
-                Handler(context.mainLooper).post {
-                    val speaker = reference.get()
-                    if (speaker != null && activeSpeaker.get() === speaker) {
-                        if (result == TextToSpeech.SUCCESS) {
-                            val language = speaker.setLanguage(Locale.getDefault())
-                            if (language != TextToSpeech.LANG_MISSING_DATA && language != TextToSpeech.LANG_NOT_SUPPORTED) {
-                                speaker.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-                                    override fun onStart(utteranceId: String?) = Unit
-                                    override fun onDone(utteranceId: String?) { activeSpeaker.compareAndSet(speaker, null); speaker.shutdown() }
-                                    @Deprecated("Deprecated in Android")
-                                    override fun onError(utteranceId: String?) { activeSpeaker.compareAndSet(speaker, null); speaker.shutdown() }
-                                    override fun onError(utteranceId: String?, errorCode: Int) { activeSpeaker.compareAndSet(speaker, null); speaker.shutdown() }
-                                })
-                                if (speaker.speak(message, TextToSpeech.QUEUE_FLUSH, null, "medicine-reminder") != TextToSpeech.SUCCESS) speaker.shutdown()
-                            } else speaker.shutdown()
-                        } else speaker.shutdown()
+    private val main = Handler(Looper.getMainLooper())
+    private var active: TextToSpeech? = null
+    private var activeOwner: String? = null
+    private var request = 0
+
+    fun speak(context: android.content.Context, message: String, owner: String, onResult: (Boolean) -> Unit = {}, onFinished: () -> Unit = {}) {
+        if (message.isBlank()) { onResult(false); return }
+        main.post {
+            stopNow()
+            val token = ++request
+            activeOwner = owner
+            val engine = runCatching {
+                TextToSpeech(context.applicationContext) { result ->
+                    main.post {
+                        if (token != request) return@post
+                        val speaker = active ?: return@post
+                        val language = if (result == TextToSpeech.SUCCESS) speaker.setLanguage(Locale.getDefault()) else TextToSpeech.LANG_MISSING_DATA
+                        if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
+                            release(token)
+                            onResult(false)
+                        } else {
+                            speaker.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                                override fun onStart(utteranceId: String?) = Unit
+                                override fun onDone(utteranceId: String?) { main.post { release(token); onFinished() } }
+                                @Deprecated("Deprecated in Android") override fun onError(utteranceId: String?) { main.post { release(token); onResult(false); onFinished() } }
+                                override fun onError(utteranceId: String?, errorCode: Int) { main.post { release(token); onResult(false); onFinished() } }
+                            })
+                            val status = speaker.speak(message, TextToSpeech.QUEUE_FLUSH, null, "medmitra-$owner-$token")
+                            onResult(status == TextToSpeech.SUCCESS)
+                            if (status != TextToSpeech.SUCCESS) { release(token); onFinished() }
+                        }
                     }
                 }
-            }
-        }.getOrNull()
-        if (tts != null) {
-            reference.set(tts)
-            activeSpeaker.set(tts)
-            Handler(context.mainLooper).postDelayed({
-                if (activeSpeaker.compareAndSet(tts, null)) { tts.stop(); tts.shutdown() }
-            }, 60_000L)
+            }.getOrNull()
+            if (engine == null) { activeOwner = null; onResult(false) } else active = engine
         }
+    }
+
+    fun stop(owner: String? = null) {
+        main.post { if (owner == null || activeOwner == owner) stopNow() }
+    }
+
+    private fun stopNow() {
+        request++
+        activeOwner = null
+        val old = active
+        active = null
+        runCatching { old?.stop() }
+        runCatching { old?.shutdown() }
+    }
+
+    private fun release(token: Int) {
+        if (token != request) return
+        activeOwner = null
+        val old = active
+        active = null
+        runCatching { old?.shutdown() }
     }
 }
 
@@ -84,31 +108,9 @@ fun VoiceReminderScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     var message by remember { mutableStateOf(VoiceReminderPreferences.message(context)) }
     var enabled by remember { mutableStateOf(VoiceReminderPreferences.enabled(context)) }
-    var engine by remember { mutableStateOf<TextToSpeech?>(null) }
-    var ready by remember { mutableStateOf(false) }
-    var status by remember { mutableStateOf("Preparing speech engine…") }
-    DisposableEffect(context) {
-        val tts = TextToSpeech(context.applicationContext) { result ->
-            if (result == TextToSpeech.SUCCESS) {
-                val speech = engine
-                if (speech != null) {
-                    val language = speech.setLanguage(Locale.getDefault())
-                    ready = language != TextToSpeech.LANG_MISSING_DATA && language != TextToSpeech.LANG_NOT_SUPPORTED
-                    status = if (ready) "Speech is ready in ${Locale.getDefault().displayName}." else "Speech data for this language is unavailable. Install language data or choose another system voice."
-                } else status = "Speech engine is unavailable."
-            } else {
-                ready = false
-                status = "Could not initialize the speech engine. Check that a text-to-speech engine is installed."
-            }
-        }
-        engine = tts
-        onDispose {
-            tts.stop()
-            tts.shutdown()
-            engine = null
-            ready = false
-        }
-    }
+    var speaking by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf("Speech starts when you preview a message.") }
+    DisposableEffect(Unit) { onDispose { VoiceReminderSpeaker.stop("preview") } }
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         PageHeader("Voice Reminders", onBack = onBack)
         Text("Enter a message for Android Text to Speech to read aloud. This does not record your voice.", color = MedMitraColors.TextSecondary)
@@ -116,15 +118,16 @@ fun VoiceReminderScreen(onBack: () -> Unit) {
             OutlinedTextField(message, { value -> message = value.take(300); VoiceReminderPreferences.save(context, value.take(300), enabled) }, modifier = Modifier.fillMaxWidth(), label = { Text("Personal reminder message") }, minLines = 3)
             Button(onClick = {
                 VoiceReminderPreferences.save(context, message, enabled)
-                val tts = engine
-                if (!ready || tts == null) status = "Speech is not ready. Check language data and the installed speech engine."
-                else if (message.isBlank()) status = "Enter a message to preview."
+                if (message.isBlank()) status = "Enter a message to preview."
                 else {
-                    val result = tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "medmitra-preview")
-                    status = if (result == TextToSpeech.SUCCESS) "Speaking preview…" else "The speech engine could not speak this message."
+                    speaking = true
+                    VoiceReminderSpeaker.speak(context, message, "preview", onResult = { success ->
+                        speaking = success
+                        status = if (success) "Speaking preview in ${Locale.getDefault().displayName}." else "Speech could not start. Check the installed speech engine and language data."
+                    }, onFinished = { speaking = false })
                 }
-            }, enabled = ready && message.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Play preview") }
-            OutlinedButton(onClick = { engine?.stop(); status = "Speech stopped." }, modifier = Modifier.fillMaxWidth()) { Text("Stop") }
+            }, enabled = message.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Play preview") }
+            OutlinedButton(onClick = { VoiceReminderSpeaker.stop("preview"); speaking = false; status = "Speech stopped." }, modifier = Modifier.fillMaxWidth()) { Text("Stop") }
         }
         PlainCard(Modifier.fillMaxWidth()) {
             Text("Speak with medicine notifications", color = MedMitraColors.Text)
@@ -132,6 +135,6 @@ fun VoiceReminderScreen(onBack: () -> Unit) {
             Text("When enabled, the saved message is spoken when a scheduled medicine reminder fires. Android may limit speech when the app is in the background or another audio session is active.", color = MedMitraColors.TextSecondary)
         }
         Text(status, color = MedMitraColors.TextSecondary)
-        if (!ready) OutlinedButton(onClick = { runCatching { context.startActivity(Intent(Engine.ACTION_INSTALL_TTS_DATA).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { status = "No speech data installer is available." } }) { Text("Check speech language data") }
+        if (!speaking) OutlinedButton(onClick = { runCatching { context.startActivity(Intent(Engine.ACTION_INSTALL_TTS_DATA).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { status = "No speech data installer is available." } }) { Text("Check speech language data") }
     }
 }

@@ -3,6 +3,7 @@ package com.medmitra.app.data
 import android.content.Context
 import androidx.room.Dao
 import androidx.room.Database
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -21,7 +22,20 @@ data class MedicineSchedule(
     val hour: Int,
     val minute: Int,
     val enabled: Boolean = true,
-    val lastTakenAtMillis: Long? = null
+    val lastTakenAtMillis: Long? = null,
+    @ColumnInfo(defaultValue = "''") val instructions: String = "",
+    val snoozedUntilMillis: Long? = null
+)
+
+@Entity(tableName = "medicine_dose_history")
+data class MedicineDoseEvent(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val medicineId: Long,
+    val medicineName: String,
+    val dosage: String,
+    val scheduledAtMillis: Long,
+    val actionAtMillis: Long,
+    val status: String
 )
 
 @Entity(tableName = "emergency_contacts")
@@ -63,11 +77,23 @@ interface MedicineDao {
     @Query("UPDATE medicines SET lastTakenAtMillis = :takenAtMillis WHERE id = :id")
     suspend fun markTaken(id: Long, takenAtMillis: Long)
 
+    @Query("UPDATE medicines SET snoozedUntilMillis = :untilMillis WHERE id = :id")
+    suspend fun setSnoozedUntil(id: Long, untilMillis: Long?)
+
     @Query("DELETE FROM medicines WHERE id = :id")
     suspend fun delete(id: Long)
 
     @Query("SELECT * FROM medicines WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): MedicineSchedule?
+}
+
+@Dao
+interface MedicineDoseHistoryDao {
+    @Query("SELECT * FROM medicine_dose_history ORDER BY actionAtMillis DESC")
+    fun observeAll(): Flow<List<MedicineDoseEvent>>
+
+    @Insert
+    suspend fun insert(event: MedicineDoseEvent)
 }
 
 @Dao
@@ -77,6 +103,9 @@ interface EmergencyContactDao {
 
     @Query("SELECT * FROM emergency_contacts WHERE enabled = 1 ORDER BY name COLLATE NOCASE")
     suspend fun getEnabled(): List<EmergencyContact>
+
+    @Query("SELECT * FROM emergency_contacts WHERE phoneE164 = :phone LIMIT 1")
+    suspend fun getByPhone(phone: String): EmergencyContact?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun save(contact: EmergencyContact): Long
@@ -116,12 +145,13 @@ interface EmergencyHistoryDao {
 }
 
 @Database(
-    entities = [MedicineSchedule::class, EmergencyContact::class, EmergencyHistoryEvent::class],
-    version = 1,
+    entities = [MedicineSchedule::class, MedicineDoseEvent::class, EmergencyContact::class, EmergencyHistoryEvent::class],
+    version = 2,
     exportSchema = false
 )
 abstract class MedMitraDatabase : RoomDatabase() {
     abstract fun medicines(): MedicineDao
+    abstract fun medicineDoseHistory(): MedicineDoseHistoryDao
     abstract fun contacts(): EmergencyContactDao
     abstract fun history(): EmergencyHistoryDao
 
@@ -133,7 +163,15 @@ abstract class MedMitraDatabase : RoomDatabase() {
                 context.applicationContext,
                 MedMitraDatabase::class.java,
                 "medmitra-local.db"
-            ).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+        }
+
+        private val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE medicines ADD COLUMN instructions TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE medicines ADD COLUMN snoozedUntilMillis INTEGER")
+                database.execSQL("CREATE TABLE IF NOT EXISTS medicine_dose_history (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, medicineId INTEGER NOT NULL, medicineName TEXT NOT NULL, dosage TEXT NOT NULL, scheduledAtMillis INTEGER NOT NULL, actionAtMillis INTEGER NOT NULL, status TEXT NOT NULL)")
+            }
         }
     }
 }

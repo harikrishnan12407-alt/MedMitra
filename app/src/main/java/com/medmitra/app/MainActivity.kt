@@ -1,8 +1,10 @@
 package com.medmitra.app
 
 import android.os.Bundle
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -46,10 +50,12 @@ import com.medmitra.app.ui.components.PlainCard
 import com.medmitra.app.ui.components.SectionHeading
 import com.medmitra.app.ui.theme.MedMitraColors
 import com.medmitra.app.ui.theme.MedMitraTheme
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         window.statusBarColor = android.graphics.Color.rgb(245, 249, 246)
@@ -62,7 +68,7 @@ class MainActivity : ComponentActivity() {
             intent.getBooleanExtra(com.medmitra.app.reminders.ReminderScheduler.EXTRA_OPEN_REMINDERS, false) -> "feature/reminder"
             intent.getBooleanExtra(com.medmitra.app.fall.FallMonitoringService.EXTRA_OPEN_SOS, false) -> "feature/sos"
             intent.getBooleanExtra(com.medmitra.app.fall.FallMonitoringService.EXTRA_OPEN_FALL, false) -> "feature/fall"
-            else -> "home"
+            else -> "splash"
         }
         setContent { MedMitraTheme { MedMitraApp(startDestination = startDestination) } }
     }
@@ -70,6 +76,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MedMitraApp(startDestination: String = "home") {
     val nav = rememberNavController()
+    val context = LocalContext.current
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "home"
 
@@ -107,9 +114,26 @@ private fun MedMitraApp(startDestination: String = "home") {
         }
     ) { innerPadding ->
         NavHost(navController = nav, startDestination = startDestination, modifier = Modifier.padding(innerPadding)) {
+            composable("splash") {
+                MedMitraSplash {
+                    nav.navigate(if (com.medmitra.app.profile.ProfilePreferences.shouldShowOnboarding(context)) "profile/setup" else "home") {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                }
+            }
             composable("home") { HomeScreen(onOpen = { nav.navigate("feature/$it") }) }
             composable("history") { HistoryScreen() }
-            composable("profile") { ProfileScreen(onOpen = { nav.navigate("feature/$it") }) }
+            composable("profile") { ProfileScreen(onOpen = { nav.navigate("feature/$it") }, onEdit = { nav.navigate("profile/setup") }) }
+            composable("profile/setup") {
+                com.medmitra.app.profile.ProfileSetupScreen(
+                    onBack = if (com.medmitra.app.profile.ProfilePreferences.completed(context)) ({ nav.popBackStack() }) else null,
+                    onSaved = {
+                        if (nav.previousBackStackEntry?.destination?.route == "profile") nav.popBackStack()
+                        else nav.navigate("home") { popUpTo("profile/setup") { inclusive = true } }
+                    },
+                    onSkip = if (!com.medmitra.app.profile.ProfilePreferences.completed(context)) ({ nav.navigate("home") { popUpTo("profile/setup") { inclusive = true } } }) else null
+                )
+            }
             composable("feature/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { backStackEntry ->
                 FeatureScreen(
                     id = backStackEntry.arguments?.getString("id") ?: "reminder",
@@ -139,6 +163,8 @@ private val features = listOf(
 
 @Composable
 private fun HomeScreen(onOpen: (String) -> Unit) {
+    val context = LocalContext.current
+    val schedules by MedMitraDatabase.get(context).medicines().observeAll().collectAsState(initial = emptyList())
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFF0FAF4), MedMitraColors.Background, Color(0xFFF8FBF9))))) {
       LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -163,15 +189,28 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
         item {
             SectionHeading("Today’s medicines", "See schedule") { onOpen("reminder") }
             Spacer(Modifier.height(8.dp))
-            FrostedCard(Modifier.fillMaxWidth()) {
-                Text("Your saved medicine schedule", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-                Text("Manage reminders and mark doses taken.", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 5.dp))
-                TextButton(onClick = { onOpen("reminder") }) { Text("Open reminders", color = MedMitraColors.MintDark) }
+            if (schedules.none { it.enabled }) {
+                FrostedCard(Modifier.fillMaxWidth()) {
+                    Text("No active medicine reminders", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
+                    Text("Add a schedule to see it here.", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
+                    TextButton(onClick = { onOpen("reminder") }) { Text("Add medicine", color = MedMitraColors.MintDark) }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    schedules.filter { it.enabled }.take(3).forEach { medicine ->
+                        FrostedCard(Modifier.fillMaxWidth()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconBadge(Icons.Filled.Medication, tint = MedMitraColors.MintDark, size = 38)
+                                Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                                    Text(medicine.name, style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
+                                    Text(medicine.dosage, style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
+                                }
+                                Text(java.time.LocalTime.of(medicine.hour, medicine.minute).format(java.time.format.DateTimeFormatter.ofPattern("h:mm a")), color = MedMitraColors.MintDark, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
             }
-        }
-
-        item {
-            MedicinePreviewCard(onClick = { onOpen("reminder") })
         }
 
         item {
@@ -208,20 +247,6 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
 }
 
 @Composable
-private fun MedicinePreviewCard(onClick: () -> Unit) {
-    PlainCard(Modifier.fillMaxWidth(), onClick = onClick) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(Icons.Filled.Medication, tint = MedMitraColors.Amber, size = 42)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Medicine reminders", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-                Text("View your saved schedule", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
-            }
-            Icon(Icons.Filled.ChevronRight, contentDescription = "View medicine schedule", tint = MedMitraColors.Sage)
-        }
-    }
-}
-
 @Composable
 private fun SosPreview(onClick: () -> Unit) {
     Row(
@@ -312,10 +337,18 @@ private fun HistoryContent() {
     val context = LocalContext.current
     val database = remember(context) { MedMitraDatabase.get(context) }
     val events by database.history().observeAll().collectAsState(initial = emptyList())
+    val doses by database.medicineDoseHistory().observeAll().collectAsState(initial = emptyList())
     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
         Text("Recent activity", style = MaterialTheme.typography.headlineSmall, color = MedMitraColors.Text)
-        if (events.isEmpty()) PlainCard(Modifier.fillMaxWidth()) {
+        if (events.isEmpty() && doses.isEmpty()) PlainCard(Modifier.fillMaxWidth()) {
             Text("No activity recorded yet", color = MedMitraColors.Text)
+        }
+        doses.forEach { dose ->
+            PlainCard(Modifier.fillMaxWidth()) {
+                Text("${dose.medicineName} · ${if (dose.status == "TAKEN") "Taken" else "Snoozed"}", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
+                Text(dose.dosage, color = MedMitraColors.TextSecondary)
+                Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(dose.actionAtMillis)), color = MedMitraColors.TextSecondary)
+            }
         }
         events.forEach { event ->
             val title = when (event.eventType) {
@@ -346,15 +379,56 @@ private fun HistoryContent() {
 }
 
 @Composable
-private fun ProfileScreen(onOpen: (String) -> Unit) {
-    Column(Modifier.fillMaxSize().background(MedMitraColors.Background).padding(horizontal = 18.dp)) {
+private fun ProfileScreen(onOpen: (String) -> Unit, onEdit: () -> Unit) {
+    val context = LocalContext.current
+    var profile by remember { mutableStateOf(com.medmitra.app.profile.ProfilePreferences.read(context)) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) profile = com.medmitra.app.profile.ProfilePreferences.read(context)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    Column(Modifier.fillMaxSize().background(MedMitraColors.Background).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         PageHeader("Profile")
-        Spacer(Modifier.height(12.dp))
-        Text("On-device app settings", style = MaterialTheme.typography.bodyLarge, color = MedMitraColors.TextSecondary)
+        PlainCard(Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                com.medmitra.app.profile.ProfileAvatar(profile.photoUri, profile.fullName, Modifier.size(64.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(profile.fullName.ifBlank { "Your profile" }, style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
+                    Text(if (profile.age > 0) "Age ${profile.age}" else "Add your age", color = MedMitraColors.TextSecondary)
+                }
+            }
+            Text("Preferred language · ${profile.language}", color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 8.dp))
+            if (profile.emergencyName.isNotBlank()) Text("Emergency contact · ${profile.emergencyName} · ${profile.emergencyPhone}", color = MedMitraColors.TextSecondary)
+            TextButton(onClick = onEdit) { Text("Edit profile") }
+        }
+        Text("Your care settings", style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
         listOf("reminder" to "Medicine reminders", "voice" to "Voice reminder message", "contacts" to "Emergency setup", "fall" to "Fall safety").forEach { (route, label) ->
             PlainCard(Modifier.fillMaxWidth(), onClick = { onOpen(route) }) { InfoRow(Icons.Filled.Settings, label, "Manage local settings", tint = MedMitraColors.Sage) }
         }
-        Spacer(Modifier.height(18.dp))
-        Text("MedMitra · Version 1.0", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
+        Text("Profile details are stored on this device.", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
+    }
+}
+
+@Composable
+private fun MedMitraSplash(onFinished: () -> Unit) {
+    var shown by remember { mutableStateOf(false) }
+    val animationsEnabled = remember { runCatching { android.animation.ValueAnimator.areAnimatorsEnabled() }.getOrDefault(true) }
+    val transition = rememberInfiniteTransition(label = "splash-pulse")
+    val pulse by transition.animateFloat(initialValue = 1f, targetValue = if (animationsEnabled) 1.055f else 1f, animationSpec = infiniteRepeatable(tween(850), RepeatMode.Reverse), label = "logo-pulse")
+    val scale by animateFloatAsState(if (shown || !animationsEnabled) 1f else .72f, animationSpec = spring(dampingRatio = .62f, stiffness = 260f), label = "logo-scale")
+    val alpha by animateFloatAsState(if (shown || !animationsEnabled) 1f else 0f, animationSpec = tween(650), label = "splash-fade")
+    LaunchedEffect(Unit) { shown = true; delay(if (animationsEnabled) 1_350L else 180L); onFinished() }
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFE8F7EF), Color.White))), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(116.dp).scale(scale * pulse).clip(CircleShape).background(MedMitraColors.MintPale), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Favorite, null, tint = MedMitraColors.MintDark, modifier = Modifier.size(78.dp))
+                Icon(Icons.Filled.Add, "Medical cross", tint = Color.White, modifier = Modifier.size(32.dp).background(MedMitraColors.MintDark, CircleShape).padding(5.dp))
+            }
+            Text("MedMitra", modifier = Modifier.padding(top = 20.dp).alpha(alpha), style = MaterialTheme.typography.headlineMedium, color = MedMitraColors.MintDark)
+            Text("Your Health, Our Care", modifier = Modifier.padding(top = 6.dp).alpha(alpha), style = MaterialTheme.typography.bodyLarge, color = MedMitraColors.TextSecondary)
+        }
     }
 }

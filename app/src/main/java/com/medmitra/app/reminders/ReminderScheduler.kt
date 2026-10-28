@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import com.medmitra.app.data.MedicineSchedule
 import com.medmitra.app.domain.ReminderTime
+import com.medmitra.app.domain.SnoozeIntervals
 import java.time.ZoneId
 
 class ReminderScheduler(context: Context) {
@@ -23,7 +24,7 @@ class ReminderScheduler(context: Context) {
         setAlarm(schedule.id, triggerAt, snooze = false)
     }
 
-    fun scheduleSnooze(scheduleId: Long, afterMillis: Long = SNOOZE_DELAY_MILLIS) {
+    fun scheduleSnooze(scheduleId: Long, afterMillis: Long = MedicineReminderPreferences.snoozeDelayMillis(appContext)) {
         setAlarm(scheduleId, System.currentTimeMillis() + afterMillis, snooze = true)
     }
 
@@ -75,9 +76,17 @@ class ReminderScheduler(context: Context) {
         const val EXTRA_ACTION = "reminder_action"
         const val EXTRA_OPEN_REMINDERS = "open_reminders"
         const val CHANNEL_ID = "medicine_reminders"
-        private const val SNOOZE_DELAY_MILLIS = 10 * 60 * 1000L
-
         fun requestCode(id: Long, snooze: Boolean): Int =
             ((id xor (id ushr 32)).toInt() * 31) + if (snooze) 1 else 0
+    }
+}
+
+object MedicineReminderPreferences {
+    private const val FILE = "medicine_reminder_settings"
+    private const val SNOOZE_MINUTES = "snooze_minutes"
+    fun snoozeMinutes(context: Context) = SnoozeIntervals.normalize(context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt(SNOOZE_MINUTES, SnoozeIntervals.DEFAULT_MINUTES))
+    fun snoozeDelayMillis(context: Context) = SnoozeIntervals.delayMillis(snoozeMinutes(context))
+    fun setSnoozeMinutes(context: Context, minutes: Int) {
+        if (minutes in SnoozeIntervals.optionsMinutes) context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putInt(SNOOZE_MINUTES, minutes).apply()
     }
 }

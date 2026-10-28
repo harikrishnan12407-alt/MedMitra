@@ -8,14 +8,16 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
-import com.medmitra.app.MainActivity
 import com.medmitra.app.data.EmergencyHistoryEvent
+import com.medmitra.app.data.MedicineDoseEvent
 import com.medmitra.app.data.MedMitraDatabase
 import com.medmitra.app.data.MedicineSchedule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.time.ZoneId
 
 class MedicineAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -29,9 +31,22 @@ class MedicineAlarmReceiver : BroadcastReceiver() {
                 val db = MedMitraDatabase.get(context)
                 val medicine = db.medicines().getById(medicineId)
                 if (medicine != null && medicine.enabled) {
-                    if (!isSnooze) ReminderScheduler(context).scheduleDaily(medicine)
+                    if (!isSnooze) {
+                        ReminderScheduler(context).cancelSnooze(medicineId)
+                        ReminderScheduler(context).scheduleDaily(medicine)
+                    }
+                    db.medicines().setSnoozedUntil(medicineId, null)
                     ReminderNotification.show(context, medicine, isSnooze)
-                    if (VoiceReminderPreferences.enabled(context)) VoiceReminderSpeaker.speak(context, VoiceReminderPreferences.message(context))
+                    val service = Intent(context, MedicineAlarmService::class.java)
+                        .setAction(MedicineAlarmService.ACTION_START)
+                        .putExtra(ReminderScheduler.EXTRA_MEDICINE_ID, medicineId)
+                        .putExtra(MedicineAlarmService.EXTRA_NAME, medicine.name)
+                        .putExtra(MedicineAlarmService.EXTRA_DOSAGE, medicine.dosage)
+                        .putExtra(MedicineAlarmService.EXTRA_HOUR, medicine.hour)
+                        .putExtra(MedicineAlarmService.EXTRA_MINUTE, medicine.minute)
+                        .putExtra(MedicineAlarmService.EXTRA_INSTRUCTIONS, medicine.instructions)
+                        .putExtra(ReminderScheduler.EXTRA_IS_SNOOZE, isSnooze)
+                    runCatching { ContextCompat.startForegroundService(context, service) }
                 }
             } finally {
                 pending.finish()
@@ -45,6 +60,10 @@ class MedicineActionReceiver : BroadcastReceiver() {
         val medicineId = intent.getLongExtra(ReminderScheduler.EXTRA_MEDICINE_ID, -1L)
         if (medicineId < 0L) return
         val action = intent.getStringExtra(ReminderScheduler.EXTRA_ACTION) ?: return
+        if (action == ReminderScheduler.ACTION_MARK_TAKEN || action == ReminderScheduler.ACTION_SNOOZE) {
+            stopMedicineAlarm(context, medicineId)
+            context.sendBroadcast(Intent(MedicineAlarmActivity.ACTION_DISMISS).setPackage(context.packageName).putExtra(ReminderScheduler.EXTRA_MEDICINE_ID, medicineId))
+        }
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -61,11 +80,24 @@ class MedicineActionReceiver : BroadcastReceiver() {
                             )
                         )
                         ReminderScheduler(context).cancelSnooze(medicineId)
+                        db.medicines().setSnoozedUntil(medicineId, null)
+                        if (medicine != null) db.medicineDoseHistory().insert(
+                            MedicineDoseEvent(
+                                medicineId = medicineId, medicineName = medicine.name, dosage = medicine.dosage,
+                                scheduledAtMillis = scheduledTimeMillis(medicine.hour, medicine.minute),
+                                actionAtMillis = System.currentTimeMillis(), status = "TAKEN"
+                            )
+                        )
                         NotificationManagerCompat.from(context).cancel(medicineId.toInt())
                     }
                     ReminderScheduler.ACTION_SNOOZE -> {
                         if (medicine != null && medicine.enabled) {
                             ReminderScheduler(context).scheduleSnooze(medicineId)
+                            val until = System.currentTimeMillis() + MedicineReminderPreferences.snoozeDelayMillis(context)
+                            db.medicines().setSnoozedUntil(medicineId, until)
+                            db.medicineDoseHistory().insert(
+                                MedicineDoseEvent(medicineId, medicine.name, medicine.dosage, scheduledTimeMillis(medicine.hour, medicine.minute), System.currentTimeMillis(), "SNOOZED")
+                            )
                         }
                         NotificationManagerCompat.from(context).cancel(medicineId.toInt())
                     }
@@ -90,8 +122,9 @@ object ReminderNotification {
             )
         }
 
-        val openIntent = Intent(context, MainActivity::class.java)
-            .putExtra(ReminderScheduler.EXTRA_OPEN_REMINDERS, true)
+        val openIntent = Intent(context, MedicineAlarmActivity::class.java)
+            .putExtra(ReminderScheduler.EXTRA_MEDICINE_ID, medicine.id)
+            .putExtra(ReminderScheduler.EXTRA_IS_SNOOZE, isSnooze)
         val openPending = PendingIntent.getActivity(
             context, medicine.id.toInt(), openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -103,11 +136,16 @@ object ReminderNotification {
             @Suppress("DEPRECATION") Notification.Builder(context)
         }.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(if (isSnooze) "Snoozed medicine reminder" else "Medicine reminder")
-            .setContentText("${medicine.name} · ${medicine.dosage}")
-            .setStyle(Notification.BigTextStyle().bigText("Time for ${medicine.name}: ${medicine.dosage}."))
-            .setCategory(Notification.CATEGORY_REMINDER)
-            .setAutoCancel(true)
+            .setContentText("${medicine.name} · ${medicine.dosage} · ${formatScheduledTime(medicine.hour, medicine.minute)}")
+            .setStyle(Notification.BigTextStyle().bigText(buildString {
+                append("Time for ${medicine.name}: ${medicine.dosage}. ${formatScheduledTime(medicine.hour, medicine.minute)}.")
+                if (medicine.instructions.isNotBlank()) append(" ${medicine.instructions}")
+            }))
+            .setCategory(Notification.CATEGORY_ALARM)
+            .setOngoing(true)
+            .setAutoCancel(false)
             .setContentIntent(openPending)
+            .setFullScreenIntent(openPending, canUseFullScreenIntent(context))
             .addAction(
                 Notification.Action.Builder(
                     android.R.drawable.checkbox_on_background,
@@ -117,7 +155,7 @@ object ReminderNotification {
             .addAction(
                 Notification.Action.Builder(
                     android.R.drawable.ic_lock_idle_alarm,
-                    "Snooze 10 min", actionPending(context, medicine.id, ReminderScheduler.ACTION_SNOOZE)
+                    "Snooze ${MedicineReminderPreferences.snoozeMinutes(context)} min", actionPending(context, medicine.id, ReminderScheduler.ACTION_SNOOZE)
                 ).build()
             )
             .build()
@@ -127,6 +165,16 @@ object ReminderNotification {
         } catch (_: SecurityException) {
             // Notifications can be revoked. The schedule remains saved and the UI reports the permission state.
         }
+    }
+
+    fun foregroundSummary(context: Context, medicine: MedicineSchedule): Notification {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.createNotificationChannel(NotificationChannel(ALARM_SERVICE_CHANNEL, "Active medicine alarm", NotificationManager.IMPORTANCE_LOW))
+        }
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(context, ALARM_SERVICE_CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(context)
+        return builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("Medicine alarm active")
+            .setContentText("${medicine.name} · ${medicine.dosage}").setCategory(Notification.CATEGORY_SERVICE).setOngoing(true).build()
     }
 
     private fun actionPending(context: Context, id: Long, action: String): PendingIntent {
@@ -139,7 +187,20 @@ object ReminderNotification {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     }
+
+    private const val ALARM_SERVICE_CHANNEL = "medicine_alarm_service"
+
+    private fun canUseFullScreenIntent(context: Context): Boolean = Build.VERSION.SDK_INT < 34 ||
+        context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
 }
+
+internal fun scheduledTimeMillis(hour: Int, minute: Int): Long {
+    val now = java.time.ZonedDateTime.now()
+    return now.toLocalDate().atTime(hour, minute).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+}
+
+internal fun formatScheduledTime(hour: Int, minute: Int): String =
+    java.time.LocalTime.of(hour, minute).format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
 
 class ReminderRescheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -157,7 +218,14 @@ class ReminderRescheduleReceiver : BroadcastReceiver() {
             try {
                 val schedules = MedMitraDatabase.get(context).medicines().getEnabled()
                 val scheduler = ReminderScheduler(context)
-                schedules.forEach { schedule -> scheduler.scheduleDaily(schedule) }
+                val now = System.currentTimeMillis()
+                schedules.forEach { schedule ->
+                    scheduler.scheduleDaily(schedule)
+                    schedule.snoozedUntilMillis?.let { deadline -> scheduler.scheduleSnooze(schedule.id, (deadline - now).coerceAtLeast(1_000L)) }
+                }
+                if (action == Intent.ACTION_BOOT_COMPLETED) {
+                    MedicineAlarmService.pendingActiveIds(context).forEach { id -> scheduler.scheduleSnooze(id, 1_000L) }
+                }
             } finally {
                 pending.finish()
             }

@@ -1,0 +1,16 @@
+<resources>
+    <style name="Theme.MedMitra" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#176B55</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#F3FAF6</item>
+        <item name="android:navigationBarColor">#F3FAF6</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <style name="Theme.MedMitra.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#EAF7EF</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/medmitra_splash_logo</item>
+        <item name="windowSplashScreenAnimationDuration">450</item>
+        <item name="postSplashScreenTheme">@style/Theme.MedMitra</item>
+    </style>
+</resources>
