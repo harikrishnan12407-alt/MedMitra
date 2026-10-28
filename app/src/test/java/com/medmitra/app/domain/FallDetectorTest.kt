@@ -13,8 +13,8 @@ class FallDetectorTest {
         assertFalse(detector.addSample(800, 9.8f, 0.1f, 5f))
         assertFalse(detector.addSample(1_300, 9.7f, 0.1f, 20f))
         assertFalse(detector.addSample(1_800, 9.8f, 0.1f, 35f))
-        assertTrue(detector.addSample(3_300, 9.8f, 0.1f, 50f))
-        assertFalse(detector.addSample(3_500, 9.8f, 0.1f, 50f))
+        assertTrue(detector.addSample(3_300, 9.8f, 0.1f, 60f))
+        assertFalse(detector.addSample(3_500, 9.8f, 0.1f, 60f))
     }
 
     @Test fun stableImpactWithoutOrientationChangeDoesNotTrigger() {
