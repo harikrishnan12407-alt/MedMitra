@@ -96,7 +96,14 @@ class MedicineActionReceiver : BroadcastReceiver() {
                             val until = System.currentTimeMillis() + MedicineReminderPreferences.snoozeDelayMillis(context)
                             db.medicines().setSnoozedUntil(medicineId, until)
                             db.medicineDoseHistory().insert(
-                                MedicineDoseEvent(medicineId, medicine.name, medicine.dosage, scheduledTimeMillis(medicine.hour, medicine.minute), System.currentTimeMillis(), "SNOOZED")
+                                MedicineDoseEvent(
+                                    medicineId = medicineId,
+                                    medicineName = medicine.name,
+                                    dosage = medicine.dosage,
+                                    scheduledAtMillis = scheduledTimeMillis(medicine.hour, medicine.minute),
+                                    actionAtMillis = System.currentTimeMillis(),
+                                    status = "SNOOZED"
+                                )
                             )
                         }
                         NotificationManagerCompat.from(context).cancel(medicineId.toInt())

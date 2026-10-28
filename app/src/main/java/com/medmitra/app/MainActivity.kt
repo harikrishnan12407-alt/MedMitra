@@ -247,7 +247,6 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
 }
 
 @Composable
-@Composable
 private fun SosPreview(onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
