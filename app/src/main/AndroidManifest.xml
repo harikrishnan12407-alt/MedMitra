@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
     <queries>
         <intent>
             <action android:name="android.intent.action.SENDTO" />
@@ -50,5 +54,12 @@
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name=".fall.FallActionReceiver"
+            android:exported="false" />
+        <service
+            android:name=".fall.FallMonitoringService"
+            android:exported="false"
+            android:foregroundServiceType="health" />
     </application>
 </manifest>

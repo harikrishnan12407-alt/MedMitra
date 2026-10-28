@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -61,13 +60,18 @@ class MainActivity : ComponentActivity() {
             isAppearanceLightStatusBars = true
             isAppearanceLightNavigationBars = true
         }
-        val openReminders = intent.getBooleanExtra(com.medmitra.app.reminders.ReminderScheduler.EXTRA_OPEN_REMINDERS, false)
-        setContent { MedMitraTheme { MedMitraApp(openReminders = openReminders) } }
+        val startDestination = when {
+            intent.getBooleanExtra(com.medmitra.app.reminders.ReminderScheduler.EXTRA_OPEN_REMINDERS, false) -> "feature/reminder"
+            intent.getBooleanExtra(com.medmitra.app.fall.FallMonitoringService.EXTRA_OPEN_SOS, false) -> "feature/sos"
+            intent.getBooleanExtra(com.medmitra.app.fall.FallMonitoringService.EXTRA_OPEN_FALL, false) -> "feature/fall"
+            else -> "home"
+        }
+        setContent { MedMitraTheme { MedMitraApp(startDestination = startDestination) } }
     }
 }
 
 @Composable
-private fun MedMitraApp(openReminders: Boolean = false) {
+private fun MedMitraApp(startDestination: String = "home") {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "home"
@@ -105,7 +109,7 @@ private fun MedMitraApp(openReminders: Boolean = false) {
             }
         }
     ) { innerPadding ->
-        NavHost(navController = nav, startDestination = if (openReminders) "feature/reminder" else "home", modifier = Modifier.padding(innerPadding)) {
+        NavHost(navController = nav, startDestination = startDestination, modifier = Modifier.padding(innerPadding)) {
             composable("home") { HomeScreen(onOpen = { nav.navigate("feature/$it") }) }
             composable("history") { HistoryScreen() }
             composable("profile") { ProfileScreen() }
@@ -195,7 +199,7 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
 
         item {
             Text(
-                "SOS opens a message for you to review and can place a call only after your confirmation. Voice and fall monitoring are not active.",
+                "SOS messages and calls need your action. Fall monitoring is opt-in; voice reminders are not active.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MedMitraColors.TextSecondary,
                 fontSize = 11.sp,
@@ -273,8 +277,11 @@ private fun FeatureScreen(id: String, onBack: () -> Unit) {
         else com.medmitra.app.emergency.EmergencySosScreen(database, onBack)
         return
     }
+    if (id == "fall") {
+        com.medmitra.app.fall.FallDetectionScreen(onBack = onBack)
+        return
+    }
     val feature = features.firstOrNull { it.id == id }
-    var fallPreviewEnabled by rememberSaveable { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
 
     Column(
@@ -295,57 +302,6 @@ private fun FeatureScreen(id: String, onBack: () -> Unit) {
                 Spacer(Modifier.height(15.dp))
                 PrimaryAction("Try a sample recording", icon = Icons.Filled.Mic, modifier = Modifier.fillMaxWidth()) { showInfo = true }
                 PreviewNote("Voice recording and playback are not implemented.")
-            }
-            "contacts" -> {
-                Text("People you trust", style = MaterialTheme.typography.headlineSmall, color = MedMitraColors.Text)
-                Text("Sample contacts for an emergency plan.", style = MaterialTheme.typography.bodyLarge, color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
-                PlainCard(Modifier.fillMaxWidth()) { InfoRow(Icons.Filled.Person, "Meera Sharma", "Daughter · +91 98765 43210") }
-                Spacer(Modifier.height(10.dp))
-                PlainCard(Modifier.fillMaxWidth()) { InfoRow(Icons.Filled.Person, "Arjun Sharma", "Neighbor · +91 98765 12345") }
-                Spacer(Modifier.height(15.dp))
-                PrimaryAction("Add a contact", icon = Icons.Filled.Add, modifier = Modifier.fillMaxWidth()) { showInfo = true }
-                PreviewNote("Contacts are illustrative. No calls or messages can be sent.")
-            }
-            "sos" -> {
-                CenteredFeatureIcon(Icons.Filled.Sos, MedMitraColors.Coral)
-                Text("Emergency SOS", style = MaterialTheme.typography.headlineSmall, color = MedMitraColors.Text, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                Text("If you need immediate help, use your phone’s emergency calling feature.", style = MaterialTheme.typography.bodyLarge, color = MedMitraColors.TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 7.dp, bottom = 18.dp))
-                FrostedCard(Modifier.fillMaxWidth()) {
-                    Text("Preview only", style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
-                    Text("This demo does not place calls, send SMS, or share your location.", style = MaterialTheme.typography.bodyLarge, color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 5.dp))
-                    Spacer(Modifier.height(14.dp))
-                    Button(
-                        onClick = { showInfo = true },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MedMitraColors.Coral)
-                    ) {
-                        Icon(Icons.Filled.Sos, contentDescription = null)
-                        Spacer(Modifier.width(9.dp))
-                        Text("Open SOS demo", fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-            "fall" -> {
-                CenteredFeatureIcon(Icons.Filled.AccessibilityNew)
-                Text("Fall safety", style = MaterialTheme.typography.headlineSmall, color = MedMitraColors.Text, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                Text("Background fall detection is not available in this version.", style = MaterialTheme.typography.bodyLarge, color = MedMitraColors.TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 7.dp, bottom = 16.dp))
-                PlainCard(Modifier.fillMaxWidth()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Preview setting", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-                            Text("No sensors are monitored", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
-                        }
-                        Switch(
-                            checked = fallPreviewEnabled,
-                            onCheckedChange = { fallPreviewEnabled = it },
-                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = MedMitraColors.Mint)
-                        )
-                    }
-                }
-                if (fallPreviewEnabled) PreviewNote("Preview only · this setting does not monitor movement.")
-                Spacer(Modifier.height(14.dp))
-                PrimaryAction("How it could work", icon = Icons.Filled.Info, modifier = Modifier.fillMaxWidth()) { showInfo = true }
             }
             "history" -> HistoryContent()
             else -> Unit
@@ -382,13 +338,16 @@ private fun HistoryContent() {
                 "SOS_CANCELLED" -> "SOS cancelled"
                 "SOS_TRIGGERED" -> "SOS actions opened"
                 "SOS_COMPLETE" -> "SOS flow completed"
+                "FALL_ALERT_PENDING" -> "Possible fall alert"
+                "FALL_ALERT_CANCELLED" -> "Fall alert acknowledged"
+                "FALL_ALERT_UNACKNOWLEDGED" -> "Fall alert unanswered"
                 else -> event.eventType.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
             }
             PlainCard(Modifier.fillMaxWidth()) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
                 Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(event.occurredAtMillis)), color = MedMitraColors.TextSecondary)
                 if (event.notes.isNotBlank()) Text(event.notes, color = MedMitraColors.TextSecondary)
-                if (event.eventType.startsWith("SOS")) {
+                if (event.eventType.startsWith("SOS") || event.eventType.startsWith("FALL")) {
                     Text("Location: ${event.locationStatus} · SMS: ${event.smsAttemptStatus} · Call: ${event.callAttemptStatus}", color = MedMitraColors.TextSecondary)
                 }
             }

@@ -93,11 +93,17 @@ interface EmergencyHistoryDao {
     @Query("SELECT * FROM emergency_history ORDER BY occurredAtMillis DESC")
     fun observeAll(): Flow<List<EmergencyHistoryEvent>>
 
+    @Query("SELECT * FROM emergency_history WHERE eventType = 'FALL_ALERT_PENDING' ORDER BY occurredAtMillis DESC LIMIT 1")
+    suspend fun latestPendingFallAlert(): EmergencyHistoryEvent?
+
     @Insert
     suspend fun insert(event: EmergencyHistoryEvent): Long
 
     @Query("UPDATE emergency_history SET eventType = :eventType, notes = :notes WHERE id = :id")
     suspend fun updateEvent(id: Long, eventType: String, notes: String)
+
+    @Query("UPDATE emergency_history SET eventType = :eventType, notes = :notes WHERE id = (SELECT id FROM emergency_history WHERE eventType = 'FALL_ALERT_PENDING' ORDER BY occurredAtMillis DESC LIMIT 1)")
+    suspend fun resolveLatestPendingFallAlert(eventType: String, notes: String)
 
     @Query("UPDATE emergency_history SET locationStatus = :status, latitude = :latitude, longitude = :longitude, locationAccuracyMeters = :accuracyMeters WHERE id = :id")
     suspend fun updateLocation(id: Long, status: String, latitude: Double?, longitude: Double?, accuracyMeters: Float?)
