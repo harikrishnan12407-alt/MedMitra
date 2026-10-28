@@ -63,12 +63,33 @@ class EmergencyWorkflow(private val countdownSeconds: Int = 5) {
         return snapshot
     }
 
+    fun skipSms(): EmergencyWorkflowSnapshot {
+        check(snapshot.stage == EmergencyStage.SMS_REVIEW)
+        snapshot = snapshot.copy(stage = EmergencyStage.CALL_REVIEW, smsStatus = HandoffStatus.NOT_ATTEMPTED)
+        return snapshot
+    }
+
     fun dialerOpened(available: Boolean): EmergencyWorkflowSnapshot {
         check(snapshot.stage == EmergencyStage.CALL_REVIEW)
         snapshot = snapshot.copy(
             stage = EmergencyStage.COMPLETE,
             callStatus = if (available) HandoffStatus.USER_ACTION_REQUIRED else HandoffStatus.UNAVAILABLE
         )
+        return snapshot
+    }
+
+    fun callRequested(available: Boolean): EmergencyWorkflowSnapshot {
+        check(snapshot.stage == EmergencyStage.CALL_REVIEW)
+        snapshot = snapshot.copy(
+            stage = EmergencyStage.COMPLETE,
+            callStatus = if (available) HandoffStatus.OUTCOME_UNKNOWN else HandoffStatus.UNAVAILABLE
+        )
+        return snapshot
+    }
+
+    fun skipCall(): EmergencyWorkflowSnapshot {
+        check(snapshot.stage == EmergencyStage.CALL_REVIEW)
+        snapshot = snapshot.copy(stage = EmergencyStage.COMPLETE)
         return snapshot
     }
 }

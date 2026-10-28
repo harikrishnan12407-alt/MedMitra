@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -37,6 +38,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.medmitra.app.data.MedMitraDatabase
 import com.medmitra.app.ui.components.CenteredFeatureIcon
 import com.medmitra.app.ui.components.FrostedCard
 import com.medmitra.app.ui.components.IconBadge
@@ -193,7 +195,7 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
 
         item {
             Text(
-                "Emergency, voice, and fall-safety tools are previews and do not contact anyone or monitor activity.",
+                "SOS opens a message for you to review and can place a call only after your confirmation. Voice and fall monitoring are not active.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MedMitraColors.TextSecondary,
                 fontSize = 11.sp,
@@ -236,7 +238,7 @@ private fun SosPreview(onClick: () -> Unit) {
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
             Text("Need help?", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-            Text("Open the SOS preview", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
+            Text("Start a cancelable SOS flow", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
         }
         TextButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp)) {
             Text("Open", color = MedMitraColors.Coral, fontWeight = FontWeight.SemiBold)
@@ -262,6 +264,13 @@ private fun ShortcutCard(feature: Feature, modifier: Modifier = Modifier, onClic
 private fun FeatureScreen(id: String, onBack: () -> Unit) {
     if (id == "reminder") {
         com.medmitra.app.reminders.MedicineReminderScreen(onBack = onBack)
+        return
+    }
+    if (id == "contacts" || id == "sos") {
+        val context = LocalContext.current
+        val database = remember(context) { MedMitraDatabase.get(context) }
+        if (id == "contacts") com.medmitra.app.emergency.EmergencyContactsScreen(database, onBack)
+        else com.medmitra.app.emergency.EmergencySosScreen(database, onBack)
         return
     }
     val feature = features.firstOrNull { it.id == id }
@@ -358,11 +367,31 @@ private fun HistoryScreen() {
 
 @Composable
 private fun HistoryContent() {
+    val context = LocalContext.current
+    val database = remember(context) { MedMitraDatabase.get(context) }
+    val events by database.history().observeAll().collectAsState(initial = emptyList())
     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
         Text("Recent activity", style = MaterialTheme.typography.headlineSmall, color = MedMitraColors.Text)
-        PlainCard(Modifier.fillMaxWidth()) {
-            Text("Activity history is not connected yet", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-            Text("Medicine and emergency events will appear here when history is implemented.", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 4.dp))
+        if (events.isEmpty()) PlainCard(Modifier.fillMaxWidth()) {
+            Text("No activity recorded yet", color = MedMitraColors.Text)
+        }
+        events.forEach { event ->
+            val title = when (event.eventType) {
+                "MEDICINE_MARKED_TAKEN" -> "Medicine marked taken"
+                "SOS_COUNTDOWN" -> "SOS started"
+                "SOS_CANCELLED" -> "SOS cancelled"
+                "SOS_TRIGGERED" -> "SOS actions opened"
+                "SOS_COMPLETE" -> "SOS flow completed"
+                else -> event.eventType.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
+            }
+            PlainCard(Modifier.fillMaxWidth()) {
+                Text(title, style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
+                Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(event.occurredAtMillis)), color = MedMitraColors.TextSecondary)
+                if (event.notes.isNotBlank()) Text(event.notes, color = MedMitraColors.TextSecondary)
+                if (event.eventType.startsWith("SOS")) {
+                    Text("Location: ${event.locationStatus} · SMS: ${event.smsAttemptStatus} · Call: ${event.callAttemptStatus}", color = MedMitraColors.TextSecondary)
+                }
+            }
         }
     }
 }

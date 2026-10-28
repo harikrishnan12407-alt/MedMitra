@@ -27,4 +27,38 @@ class EmergencyWorkflowTest {
         assertEquals(HandoffStatus.USER_ACTION_REQUIRED, flow.snapshot.callStatus)
         assertEquals(EmergencyStage.COMPLETE, flow.snapshot.stage)
     }
+
+    @Test fun callCanBeSkippedWithoutReportingAnAttempt() {
+        val flow = EmergencyWorkflow()
+        flow.start(1_000)
+        flow.tick(6_000)
+        flow.locationResolved("NOT_SHARED")
+        flow.smsComposerOpened(available = false)
+        assertEquals(HandoffStatus.UNAVAILABLE, flow.snapshot.smsStatus)
+        flow.skipCall()
+        assertEquals(HandoffStatus.NOT_ATTEMPTED, flow.snapshot.callStatus)
+        assertEquals(EmergencyStage.COMPLETE, flow.snapshot.stage)
+    }
+
+    @Test fun skippingSmsAndCallLeavesBothAttemptsUnchanged() {
+        val flow = EmergencyWorkflow()
+        flow.start(1_000)
+        flow.tick(6_000)
+        flow.locationResolved("NOT_SHARED")
+        flow.skipSms()
+        flow.skipCall()
+        assertEquals(HandoffStatus.NOT_ATTEMPTED, flow.snapshot.smsStatus)
+        assertEquals(HandoffStatus.NOT_ATTEMPTED, flow.snapshot.callStatus)
+    }
+
+    @Test fun directCallRequestRecordsUnknownConnectionOutcome() {
+        val flow = EmergencyWorkflow()
+        flow.start(1_000)
+        flow.tick(6_000)
+        flow.locationResolved("NOT_SHARED")
+        flow.skipSms()
+        flow.callRequested(available = true)
+        assertEquals(HandoffStatus.OUTCOME_UNKNOWN, flow.snapshot.callStatus)
+        assertEquals(EmergencyStage.COMPLETE, flow.snapshot.stage)
+    }
 }

@@ -72,7 +72,7 @@ interface MedicineDao {
 
 @Dao
 interface EmergencyContactDao {
-    @Query("SELECT * FROM emergency_contacts WHERE enabled = 1 ORDER BY name COLLATE NOCASE")
+    @Query("SELECT * FROM emergency_contacts ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<EmergencyContact>>
 
     @Query("SELECT * FROM emergency_contacts WHERE enabled = 1 ORDER BY name COLLATE NOCASE")
@@ -95,6 +95,9 @@ interface EmergencyHistoryDao {
 
     @Insert
     suspend fun insert(event: EmergencyHistoryEvent): Long
+
+    @Query("UPDATE emergency_history SET eventType = :eventType, notes = :notes WHERE id = :id")
+    suspend fun updateEvent(id: Long, eventType: String, notes: String)
 
     @Query("UPDATE emergency_history SET locationStatus = :status, latitude = :latitude, longitude = :longitude, locationAccuracyMeters = :accuracyMeters WHERE id = :id")
     suspend fun updateLocation(id: Long, status: String, latitude: Double?, longitude: Double?, accuracyMeters: Float?)
