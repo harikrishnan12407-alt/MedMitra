@@ -5,8 +5,8 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.*
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -82,7 +82,7 @@ private fun MedMitraApp(startDestination: String = "home") {
     val nav = rememberNavController()
     val context = LocalContext.current
     val entry by nav.currentBackStackEntryAsState()
-    val route = entry?.destination?.route ?: "home"
+    val route = entry?.destination?.route ?: startDestination
     val activity = context as? ComponentActivity
     SideEffect {
         val showingSplash = route == "splash"
@@ -133,12 +133,13 @@ private fun MedMitraApp(startDestination: String = "home") {
         NavHost(navController = nav, startDestination = startDestination, modifier = Modifier.padding(innerPadding)) {
             composable(
                 route = "splash",
-                enterTransition = { fadeIn(tween(260)) },
-                exitTransition = { fadeOut(tween(260)) }
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None }
             ) {
                 MedMitraSplash {
                     nav.navigate(if (com.medmitra.app.profile.ProfilePreferences.shouldShowOnboarding(context)) "profile/setup" else "home") {
                         popUpTo("splash") { inclusive = true }
+                        launchSingleTop = true
                     }
                 }
             }
@@ -435,6 +436,7 @@ private fun ProfileScreen(onOpen: (String) -> Unit, onEdit: () -> Unit) {
 @Composable
 private fun MedMitraSplash(onFinished: () -> Unit) {
     var revealed by remember { mutableStateOf(false) }
+    var navigationDispatched by remember { mutableStateOf(false) }
     val animationsEnabled = remember { runCatching { android.animation.ValueAnimator.areAnimatorsEnabled() }.getOrDefault(true) }
     val transition = rememberInfiniteTransition(label = "brand-heartbeat")
     val pulse by transition.animateFloat(
@@ -456,8 +458,11 @@ private fun MedMitraSplash(onFinished: () -> Unit) {
     val ornamentOffset by ornament.animateFloat(-5f, 5f, infiniteRepeatable(tween(2_400, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "ornament-float")
     LaunchedEffect(Unit) {
         revealed = true
-        delay(if (animationsEnabled) 1_050L else 120L)
-        onFinished()
+        delay(if (animationsEnabled) 1_850L else 120L)
+        if (!navigationDispatched) {
+            navigationDispatched = true
+            onFinished()
+        }
     }
 
     Box(
