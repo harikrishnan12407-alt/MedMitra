@@ -5,6 +5,8 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -114,7 +116,11 @@ private fun MedMitraApp(startDestination: String = "home") {
         }
     ) { innerPadding ->
         NavHost(navController = nav, startDestination = startDestination, modifier = Modifier.padding(innerPadding)) {
-            composable("splash") {
+            composable(
+                route = "splash",
+                enterTransition = { fadeIn(tween(260)) },
+                exitTransition = { fadeOut(tween(260)) }
+            ) {
                 MedMitraSplash {
                     nav.navigate(if (com.medmitra.app.profile.ProfilePreferences.shouldShowOnboarding(context)) "profile/setup" else "home") {
                         popUpTo("splash") { inclusive = true }
@@ -413,21 +419,76 @@ private fun ProfileScreen(onOpen: (String) -> Unit, onEdit: () -> Unit) {
 
 @Composable
 private fun MedMitraSplash(onFinished: () -> Unit) {
-    var shown by remember { mutableStateOf(false) }
+    var revealed by remember { mutableStateOf(false) }
     val animationsEnabled = remember { runCatching { android.animation.ValueAnimator.areAnimatorsEnabled() }.getOrDefault(true) }
-    val transition = rememberInfiniteTransition(label = "splash-pulse")
-    val pulse by transition.animateFloat(initialValue = 1f, targetValue = if (animationsEnabled) 1.055f else 1f, animationSpec = infiniteRepeatable(tween(850), RepeatMode.Reverse), label = "logo-pulse")
-    val scale by animateFloatAsState(if (shown || !animationsEnabled) 1f else .72f, animationSpec = spring(dampingRatio = .62f, stiffness = 260f), label = "logo-scale")
-    val alpha by animateFloatAsState(if (shown || !animationsEnabled) 1f else 0f, animationSpec = tween(650), label = "splash-fade")
-    LaunchedEffect(Unit) { shown = true; delay(if (animationsEnabled) 1_350L else 180L); onFinished() }
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFE8F7EF), Color.White))), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(116.dp).scale(scale * pulse).clip(CircleShape).background(MedMitraColors.MintPale), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Favorite, null, tint = MedMitraColors.MintDark, modifier = Modifier.size(78.dp))
-                Icon(Icons.Filled.Add, "Medical cross", tint = Color.White, modifier = Modifier.size(32.dp).background(MedMitraColors.MintDark, CircleShape).padding(5.dp))
+    val transition = rememberInfiniteTransition(label = "brand-heartbeat")
+    val pulse by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (animationsEnabled) 1.045f else 1f,
+        animationSpec = infiniteRepeatable(tween(1_050, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "brand-pulse"
+    )
+    val logoScale by animateFloatAsState(
+        targetValue = if (revealed || !animationsEnabled) 1f else .76f,
+        animationSpec = spring(dampingRatio = .68f, stiffness = 230f),
+        label = "brand-logo-scale"
+    )
+    val logoAlpha by animateFloatAsState(if (revealed || !animationsEnabled) 1f else 0f, tween(360), label = "brand-logo-alpha")
+    val titleAlpha by animateFloatAsState(if (revealed || !animationsEnabled) 1f else 0f, tween(430, delayMillis = 170), label = "brand-title-alpha")
+    val taglineAlpha by animateFloatAsState(if (revealed || !animationsEnabled) 1f else 0f, tween(420, delayMillis = 300), label = "brand-tagline-alpha")
+    val ornament = rememberInfiniteTransition(label = "brand-ornaments")
+    val ornamentOffset by ornament.animateFloat(-5f, 5f, infiniteRepeatable(tween(2_400, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "ornament-float")
+    LaunchedEffect(Unit) {
+        revealed = true
+        delay(if (animationsEnabled) 1_050L else 120L)
+        onFinished()
+    }
+
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(Color(0xFF062B24), Color(0xFF0B493B), Color(0xFF0E5A46)))
+        ),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(Modifier.align(Alignment.TopEnd).padding(top = 118.dp, end = 48.dp).offset(y = ornamentOffset.dp)
+            .size(9.dp).background(Color(0x667EE4B5), CircleShape))
+        Box(Modifier.align(Alignment.BottomStart).padding(start = 55.dp, bottom = 142.dp).offset(y = (-ornamentOffset).dp)
+            .size(6.dp).background(Color(0x667EE4B5), CircleShape))
+        Box(Modifier.align(Alignment.Center).offset(x = 112.dp, y = (-104).dp).size(14.dp)
+            .background(Color(0x337EE4B5), CircleShape))
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 30.dp)) {
+            Box(
+                Modifier.size(166.dp).scale(logoScale * pulse).alpha(logoAlpha),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(Modifier.size(166.dp).border(1.dp, Color(0x337EE4B5), CircleShape))
+                Box(Modifier.size(142.dp).shadow(24.dp, CircleShape).background(Color(0xFF174F40), CircleShape)
+                    .border(1.dp, Color(0x667EE4B5), CircleShape))
+                Box(Modifier.size(116.dp).background(Brush.radialGradient(listOf(Color(0xFFB5F2D1), Color(0xFF52BD8E))), CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color(0xFF0A4939), modifier = Modifier.size(77.dp))
+                    Box(Modifier.align(Alignment.TopEnd).padding(top = 24.dp, end = 21.dp).size(38.dp)
+                        .shadow(8.dp, CircleShape).background(Color.White, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Add, contentDescription = "Medical cross", tint = Color(0xFF087657), modifier = Modifier.size(29.dp))
+                    }
+                }
             }
-            Text("MedMitra", modifier = Modifier.padding(top = 20.dp).alpha(alpha), style = MaterialTheme.typography.headlineMedium, color = MedMitraColors.MintDark)
-            Text("Your Health, Our Care", modifier = Modifier.padding(top = 6.dp).alpha(alpha), style = MaterialTheme.typography.bodyLarge, color = MedMitraColors.TextSecondary)
+            Text(
+                "MedMitra", modifier = Modifier.padding(top = 27.dp).alpha(titleAlpha),
+                fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-.7).sp, color = Color.White
+            )
+            Text(
+                "Your Health, Our Care", modifier = Modifier.padding(top = 8.dp).alpha(taglineAlpha),
+                style = MaterialTheme.typography.bodyLarge, color = Color(0xFFD2EEE0), letterSpacing = .35.sp
+            )
+            Row(
+                Modifier.padding(top = 34.dp).alpha(taglineAlpha),
+                horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(3) { index ->
+                    Box(Modifier.size(if (index == 1) 6.dp else 4.dp).background(Color(0xFF8CDBB5), CircleShape))
+                }
+            }
         }
     }
 }

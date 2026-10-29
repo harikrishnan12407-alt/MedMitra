@@ -8,7 +8,7 @@
         <item name="android:windowActionModeOverlay">true</item>
     </style>
     <style name="Theme.MedMitra.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#EAF7EF</item>
+        <item name="windowSplashScreenBackground">#062B24</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/medmitra_splash_logo</item>
         <item name="windowSplashScreenAnimationDuration">450</item>
         <item name="postSplashScreenTheme">@style/Theme.MedMitra</item>
