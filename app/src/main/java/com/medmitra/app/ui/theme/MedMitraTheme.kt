@@ -9,6 +9,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 object MedMitraColors {
+    val Emerald = Color(0xFF062B24)
+    val EmeraldMid = Color(0xFF0B493B)
+    val MintGlow = Color(0xFF8CDBB5)
     val Background = Color(0xFFF3FAF6)
     val Surface = Color(0xFFFCFEFD)
     val SurfaceSoft = Color(0xFFEAF5EE)

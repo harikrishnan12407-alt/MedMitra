@@ -9,6 +9,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -42,6 +44,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -120,10 +124,47 @@ fun ProfileSetupScreen(onBack: (() -> Unit)?, onSaved: () -> Unit, onSkip: (() -
     }
     val ageValue = age.toIntOrNull()
     val phoneValid = emergencyPhone.isBlank() || emergencyPhone.matches(Regex("^\\+[1-9][0-9]{7,14}$"))
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(Color(0xFFEAF7EF), MedMitraColors.Background, Color.White))
+        ).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         PageHeader(if (ProfilePreferences.completed(context)) "Edit Profile" else "Welcome to MedMitra", onBack = onBack)
-        Text(if (ProfilePreferences.completed(context)) "Update your local profile details." else "A few details help personalize your reminders. Your information stays on this device.", color = MedMitraColors.TextSecondary)
-        Text("Step ${step + 1} of 2", color = MedMitraColors.MintDark, fontWeight = FontWeight.SemiBold)
+        androidx.compose.foundation.layout.Box(
+            Modifier.fillMaxWidth().background(
+                Brush.linearGradient(listOf(MedMitraColors.Emerald, MedMitraColors.EmeraldMid, MedMitraColors.MintDark)),
+                androidx.compose.foundation.shape.RoundedCornerShape(22.dp)
+            ).border(1.dp, Color.White.copy(alpha = .2f), androidx.compose.foundation.shape.RoundedCornerShape(22.dp)).padding(17.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                androidx.compose.foundation.layout.Box(
+                    Modifier.size(48.dp).background(Color.White.copy(alpha = .14f), CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = .24f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color(0xFFB5F2D1), modifier = Modifier.size(24.dp))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(if (ProfilePreferences.completed(context)) "Your profile, your way" else "A little about you", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (ProfilePreferences.completed(context)) "Update your details any time." else "Personalize reminders and trusted contacts. Your details stay on this device.",
+                        color = Color(0xFFD7F0E2), style = androidx.compose.material3.MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            repeat(2) { index ->
+                androidx.compose.foundation.layout.Box(
+                    Modifier.weight(1f).height(4.dp).background(
+                        if (step >= index) MedMitraColors.MintDark else MedMitraColors.MintPale,
+                        androidx.compose.foundation.shape.RoundedCornerShape(50)
+                    )
+                )
+            }
+            Text("${step + 1} of 2", color = MedMitraColors.MintDark, fontWeight = FontWeight.SemiBold)
+        }
         if (step == 0) PlainCard(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 ProfileAvatar(photo, name, Modifier.size(68.dp))

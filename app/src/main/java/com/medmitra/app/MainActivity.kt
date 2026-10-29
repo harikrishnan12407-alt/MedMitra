@@ -1,6 +1,7 @@
 package com.medmitra.app
 
 import android.os.Bundle
+import android.os.SystemClock
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -9,6 +10,9 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -95,8 +100,8 @@ class MainActivity : ComponentActivity() {
 private fun MedMitraApp(startDestination: String = "home") {
     val context = LocalContext.current
     val startup = startDestination == StartupDestination.SPLASH
-    var showSplash by remember(startDestination) { mutableStateOf(startup) }
-    var navigationStart by remember(startDestination) {
+    var showSplash by rememberSaveable(startDestination) { mutableStateOf(startup) }
+    var navigationStart by rememberSaveable(startDestination) {
         mutableStateOf(startDestination.takeUnless { it == StartupDestination.SPLASH })
     }
     val activity = context as? ComponentActivity
@@ -281,13 +286,7 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
       ) {
         item {
-            Row(Modifier.fillMaxWidth().heightIn(min = 54.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Welcome to MedMitra", style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
-                    Text("Your care, at a glance", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
-                }
-                com.medmitra.app.profile.ProfileAvatar(profile.photoUri, profile.fullName, Modifier.size(40.dp))
-            }
+            HomeWelcomeCard(profile)
         }
 
         item {
@@ -326,6 +325,52 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
             )
         }
       }
+    }
+}
+
+@Composable
+private fun HomeWelcomeCard(profile: com.medmitra.app.profile.UserProfile) {
+    val firstName = profile.fullName.trim().substringBefore(' ').ifBlank { "friend" }
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn(tween(360)) + slideInVertically(tween(360, easing = FastOutSlowInEasing)) { it / 12 }
+    ) {
+        Box(
+            Modifier.fillMaxWidth()
+                .shadow(7.dp, RoundedCornerShape(24.dp), ambientColor = Color(0x24329A79), spotColor = Color(0x24329A79))
+                .clip(RoundedCornerShape(24.dp))
+                .background(Brush.linearGradient(listOf(MedMitraColors.Emerald, MedMitraColors.EmeraldMid, MedMitraColors.MintDark)))
+                .border(1.dp, Color.White.copy(alpha = .18f), RoundedCornerShape(24.dp))
+        ) {
+            Box(
+                Modifier.align(Alignment.TopEnd).offset(x = 30.dp, y = (-46).dp).size(138.dp)
+                    .background(Color.White.copy(alpha = .045f), CircleShape)
+            )
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 17.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("YOUR DAILY CARE", style = MaterialTheme.typography.labelLarge, color = MedMitraColors.MintGlow, letterSpacing = 1.15.sp)
+                    Text(
+                        if (profile.fullName.isBlank()) "Welcome to MedMitra" else "Welcome back, $firstName",
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp, lineHeight = 25.sp),
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Text("Your health, at a glance", style = MaterialTheme.typography.bodyMedium, color = Color(0xFFD7F0E2), modifier = Modifier.padding(top = 2.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Box(
+                    Modifier.size(54.dp).border(1.dp, Color.White.copy(alpha = .58f), CircleShape).padding(3.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    com.medmitra.app.profile.ProfileAvatar(profile.photoUri, profile.fullName, Modifier.fillMaxSize())
+                }
+            }
+        }
     }
 }
 
@@ -567,8 +612,9 @@ private fun ProfileScreen(onOpen: (String) -> Unit, onEdit: () -> Unit, onPermis
 
 @Composable
 private fun MedMitraSplash(onFinished: () -> Unit) {
-    var revealed by remember { mutableStateOf(false) }
-    var navigationDispatched by remember { mutableStateOf(false) }
+    var revealed by rememberSaveable { mutableStateOf(false) }
+    var navigationDispatched by rememberSaveable { mutableStateOf(false) }
+    var splashStartedAt by rememberSaveable { mutableLongStateOf(0L) }
     val animationsEnabled = remember { runCatching { android.animation.ValueAnimator.areAnimatorsEnabled() }.getOrDefault(true) }
     val transition = rememberInfiniteTransition(label = "brand-heartbeat")
     val pulse by transition.animateFloat(
@@ -589,8 +635,12 @@ private fun MedMitraSplash(onFinished: () -> Unit) {
     val ornament = rememberInfiniteTransition(label = "brand-ornaments")
     val ornamentOffset by ornament.animateFloat(-5f, 5f, infiniteRepeatable(tween(2_400, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "ornament-float")
     LaunchedEffect(Unit) {
+        val startedAt = splashStartedAt.takeIf { it > 0L } ?: SystemClock.elapsedRealtime().also { splashStartedAt = it }
         revealed = true
-        delay(if (animationsEnabled) 1_850L else 120L)
+        val minimumDuration = if (animationsEnabled) 1_850L else 120L
+        val elapsed = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L)
+        val remaining = (minimumDuration - elapsed).coerceAtLeast(0L)
+        if (remaining > 0L) delay(remaining)
         if (!navigationDispatched) {
             navigationDispatched = true
             onFinished()
@@ -598,11 +648,11 @@ private fun MedMitraSplash(onFinished: () -> Unit) {
     }
 
     Box(
-        Modifier.fillMaxSize().background(Color(0xFF062B24)),
+        Modifier.fillMaxSize().background(MedMitraColors.Emerald),
         contentAlignment = Alignment.Center
     ) {
         Box(Modifier.fillMaxSize().alpha(backdropAlpha).background(
-            Brush.verticalGradient(listOf(Color(0xFF062B24), Color(0xFF0B493B), Color(0xFF0E5A46)))
+            Brush.verticalGradient(listOf(MedMitraColors.Emerald, MedMitraColors.EmeraldMid, Color(0xFF0E5A46)))
         ))
         Box(Modifier.align(Alignment.TopEnd).alpha(backdropAlpha).padding(top = 118.dp, end = 48.dp).offset(y = ornamentOffset.dp)
             .size(9.dp).background(Color(0x667EE4B5), CircleShape))
@@ -618,11 +668,11 @@ private fun MedMitraSplash(onFinished: () -> Unit) {
                 Box(Modifier.size(166.dp).border(1.dp, Color(0x337EE4B5), CircleShape))
                 Box(Modifier.size(142.dp).shadow(24.dp, CircleShape).background(Color(0xFF174F40), CircleShape)
                     .border(1.dp, Color(0x667EE4B5), CircleShape))
-                Box(Modifier.size(116.dp).background(Brush.radialGradient(listOf(Color(0xFFB5F2D1), Color(0xFF52BD8E))), CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color(0xFF0A4939), modifier = Modifier.size(77.dp))
+                Box(Modifier.size(116.dp).background(Brush.radialGradient(listOf(Color(0xFFB5F2D1), MedMitraColors.MintGlow)), CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Favorite, contentDescription = null, tint = MedMitraColors.EmeraldMid, modifier = Modifier.size(77.dp))
                     Box(Modifier.align(Alignment.TopEnd).padding(top = 24.dp, end = 21.dp).size(38.dp)
                         .shadow(8.dp, CircleShape).background(Color.White, CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Add, contentDescription = "Medical cross", tint = Color(0xFF087657), modifier = Modifier.size(29.dp))
+                        Icon(Icons.Filled.Add, contentDescription = "Medical cross", tint = MedMitraColors.MintDark, modifier = Modifier.size(29.dp))
                     }
                 }
             }
@@ -640,7 +690,7 @@ private fun MedMitraSplash(onFinished: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically
             ) {
                 repeat(3) { index ->
-                    Box(Modifier.size(if (index == 1) 6.dp else 4.dp).background(Color(0xFF8CDBB5), CircleShape))
+                    Box(Modifier.size(if (index == 1) 6.dp else 4.dp).background(MedMitraColors.MintGlow, CircleShape))
                 }
             }
         }

@@ -12,6 +12,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,14 +22,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -96,20 +101,31 @@ fun PermissionSetupScreen(onDone: () -> Unit, onBack: (() -> Unit)?) {
         verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
         PageHeader("Permission setup", onBack = onBack)
-        PlainCard(Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                androidx.compose.material3.Icon(Icons.Filled.Security, contentDescription = null, tint = MedMitraColors.MintDark)
+        androidx.compose.foundation.layout.Box(
+            Modifier.fillMaxWidth().background(
+                Brush.linearGradient(listOf(MedMitraColors.Emerald, MedMitraColors.EmeraldMid, MedMitraColors.MintDark)),
+                RoundedCornerShape(24.dp)
+            ).border(1.dp, Color.White.copy(alpha = .22f), RoundedCornerShape(24.dp)).padding(18.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                androidx.compose.foundation.layout.Box(
+                    Modifier.size(48.dp).background(Color.White.copy(alpha = .13f), CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = .24f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.material3.Icon(Icons.Filled.Security, contentDescription = null, tint = MedMitraColors.MintGlow, modifier = Modifier.size(25.dp))
+                }
                 Column {
-                    Text("Your choices stay in your hands", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
+                    Text("Your care, your choice", style = MaterialTheme.typography.titleMedium, color = Color.White)
                     Text(
-                        "MedMitra only requests access when you choose it. You can skip any item and change it later in Android Settings.",
-                        style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary
+                        "Review what MedMitra uses. You can skip any item and change access later in Android Settings.",
+                        style = MaterialTheme.typography.bodyMedium, color = Color(0xFFD7F0E2)
                     )
                 }
             }
         }
 
-        Text("CORE ACCESS · MEDICINE REMINDERS", style = MaterialTheme.typography.labelLarge, color = MedMitraColors.MintDark)
+        PermissionSectionHeading("MEDICINE REMINDERS", "CORE ACCESS")
         PermissionRow(
             "Notifications", "Show scheduled reminders and alarm controls.",
             accessStatus(snapshot.notifications), !snapshot.notifications,
@@ -138,7 +154,7 @@ fun PermissionSetupScreen(onDone: () -> Unit, onBack: (() -> Unit)?) {
             onAction = { openFullScreenSettings(context) }
         )
 
-        Text("OPTIONAL · EMERGENCY SOS", style = MaterialTheme.typography.labelLarge, color = MedMitraColors.MintDark)
+        PermissionSectionHeading("EMERGENCY SOS", "OPTIONAL")
         Text("These permissions are used only for actions you enable and explicitly start in SOS. This checklist never sends a message or places a call.", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
         PermissionRow(
             "Location", "Adds a current location to an SOS message when a fresh fix is available.", snapshot.location,
@@ -154,7 +170,7 @@ fun PermissionSetupScreen(onDone: () -> Unit, onBack: (() -> Unit)?) {
             if (snapshot.calls) "Enabled" else "Allow", onAction = { callsRequest.launch(Manifest.permission.CALL_PHONE) }
         )
 
-        Text("OPTIONAL · FALL SAFETY AND VOICE", style = MaterialTheme.typography.labelLarge, color = MedMitraColors.MintDark)
+        PermissionSectionHeading("FALL SAFETY AND VOICE", "OPTIONAL")
         PermissionRow(
             "Activity recognition", "Lets the opt-in Fall Safety foreground service use motion activity on Android 10 and later.",
             snapshot.activityRecognition?.let(::accessStatus) ?: "Not required on this Android version",
@@ -200,15 +216,52 @@ private fun PermissionRow(
 ) {
     PlainCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.foundation.layout.Box(
+                Modifier.padding(end = 12.dp).size(42.dp).background(MedMitraColors.SurfaceSoft, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = when (title) {
+                        "Notifications" -> Icons.Filled.NotificationsActive
+                        "Exact alarms", "Full-screen alarms" -> Icons.Filled.Alarm
+                        "Location" -> Icons.Filled.LocationOn
+                        "Send SMS" -> Icons.Filled.Sms
+                        "Place calls" -> Icons.Filled.Call
+                        "Activity recognition" -> Icons.Filled.DirectionsRun
+                        "Emergency contacts" -> Icons.Filled.People
+                        else -> Icons.Filled.RecordVoiceOver
+                    },
+                    contentDescription = null, tint = MedMitraColors.MintDark, modifier = Modifier.size(21.dp)
+                )
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
                 Text(explanation, style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
-                Text("Status · $status", style = MaterialTheme.typography.labelLarge, color = if (needsAttention) MedMitraColors.Amber else MedMitraColors.MintDark)
+                Surface(
+                    color = if (needsAttention) Color(0xFFFFF3DB) else MedMitraColors.SurfaceSoft,
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text(
+                        status, Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (needsAttention) MedMitraColors.Amber else MedMitraColors.MintDark
+                    )
+                }
             }
             if (needsAttention) {
                 Spacer(Modifier.width(6.dp))
                 OutlinedButton(onClick = onAction) { Text(actionLabel) }
             }
+        }
+    }
+}
+
+@Composable
+private fun PermissionSectionHeading(title: String, tag: String) {
+    Row(Modifier.fillMaxWidth().padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MedMitraColors.MintDark, modifier = Modifier.weight(1f))
+        Surface(color = MedMitraColors.SurfaceSoft, shape = RoundedCornerShape(50)) {
+            Text(tag, Modifier.padding(horizontal = 9.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = MedMitraColors.MintDark)
         }
     }
 }

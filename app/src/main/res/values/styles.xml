@@ -8,16 +8,16 @@
         <item name="android:windowActionModeOverlay">true</item>
     </style>
     <style name="Theme.MedMitra.Launch" parent="Theme.MedMitra">
-        <item name="android:windowBackground">#062B24</item>
-        <item name="android:statusBarColor">#062B24</item>
-        <item name="android:navigationBarColor">#062B24</item>
+        <item name="android:windowBackground">@color/medmitra_emerald</item>
+        <item name="android:statusBarColor">@color/medmitra_emerald</item>
+        <item name="android:navigationBarColor">@color/medmitra_emerald</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>
     <style name="Theme.MedMitra.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#062B24</item>
+        <item name="windowSplashScreenBackground">@color/medmitra_emerald</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/medmitra_splash_empty</item>
         <item name="postSplashScreenTheme">@style/Theme.MedMitra.Launch</item>
-        <item name="android:windowBackground">#062B24</item>
+        <item name="android:windowBackground">@color/medmitra_emerald</item>
     </style>
 </resources>
