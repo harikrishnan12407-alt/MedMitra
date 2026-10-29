@@ -282,8 +282,8 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFF0FAF4), MedMitraColors.Background, Color(0xFFF8FBF9))))) {
       LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 5.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
       ) {
         item {
             HomeWelcomeCard(profile)
@@ -291,7 +291,7 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
 
         item {
             SectionHeading("Today’s medicines", "See schedule") { onOpen("reminder") }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(3.dp))
             TodayPlanCard(todayProgress, onAddMedicine = { onOpen("reminder") })
         }
 
@@ -301,8 +301,8 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
 
         item {
             SectionHeading("Your shortcuts")
-            Spacer(Modifier.height(5.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.height(2.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 features.chunked(2).forEach { rowFeatures ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         rowFeatures.forEach { feature ->
@@ -321,7 +321,7 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
                 color = MedMitraColors.TextSecondary,
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
             )
         }
       }
@@ -337,34 +337,34 @@ private fun HomeWelcomeCard(profile: com.medmitra.app.profile.UserProfile) {
     ) {
         Box(
             Modifier.fillMaxWidth()
-                .shadow(7.dp, RoundedCornerShape(24.dp), ambientColor = Color(0x24329A79), spotColor = Color(0x24329A79))
-                .clip(RoundedCornerShape(24.dp))
+                .shadow(5.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24329A79), spotColor = Color(0x24329A79))
+                .clip(RoundedCornerShape(20.dp))
                 .background(Brush.linearGradient(listOf(MedMitraColors.Emerald, MedMitraColors.EmeraldMid, MedMitraColors.MintDark)))
-                .border(1.dp, Color.White.copy(alpha = .18f), RoundedCornerShape(24.dp))
+                .border(1.dp, Color.White.copy(alpha = .18f), RoundedCornerShape(20.dp))
         ) {
             Box(
                 Modifier.align(Alignment.TopEnd).offset(x = 30.dp, y = (-46).dp).size(138.dp)
                     .background(Color.White.copy(alpha = .045f), CircleShape)
             )
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 17.dp),
+                Modifier.fillMaxWidth().heightIn(min = 68.dp).padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("YOUR DAILY CARE", style = MaterialTheme.typography.labelLarge, color = MedMitraColors.MintGlow, letterSpacing = 1.15.sp)
+                    Text("YOUR DAILY CARE", style = MaterialTheme.typography.labelMedium, color = MedMitraColors.MintGlow, letterSpacing = .9.sp)
                     Text(
                         if (profile.fullName.isBlank()) "Welcome to MedMitra" else "Welcome back, $firstName",
-                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp, lineHeight = 25.sp),
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 22.sp),
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier.padding(top = 2.dp)
                     )
-                    Text("Your health, at a glance", style = MaterialTheme.typography.bodyMedium, color = Color(0xFFD7F0E2), modifier = Modifier.padding(top = 2.dp))
+                    Text("Your health, at a glance", style = MaterialTheme.typography.bodyMedium, color = Color(0xFFD7F0E2), fontSize = 13.sp)
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(10.dp))
                 Box(
-                    Modifier.size(54.dp).border(1.dp, Color.White.copy(alpha = .58f), CircleShape).padding(3.dp),
+                    Modifier.size(46.dp).border(1.dp, Color.White.copy(alpha = .68f), CircleShape).padding(2.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     com.medmitra.app.profile.ProfileAvatar(profile.photoUri, profile.fullName, Modifier.fillMaxSize())
@@ -387,14 +387,14 @@ private fun TodayPlanCard(progress: TodayPlanProgress, onAddMedicine: () -> Unit
         label = "todayPlanPercentage"
     )
     val empty = progress.totalDoses == 0
-    val ringSize = 104.dp
+    val ringSize = 88.dp
     Row(
         Modifier.fillMaxWidth()
-            .shadow(3.dp, RoundedCornerShape(24.dp), ambientColor = Color(0x18329A79), spotColor = Color(0x18329A79))
-            .clip(RoundedCornerShape(24.dp))
+            .shadow(3.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x18329A79), spotColor = Color(0x18329A79))
+            .clip(RoundedCornerShape(20.dp))
             .background(Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFEAF7EF), Color(0xFFF7FCF8))))
-            .border(1.dp, Color(0xFFD8EBDF), RoundedCornerShape(24.dp))
-            .padding(horizontal = 15.dp, vertical = 16.dp),
+            .border(1.dp, Color(0xFFD8EBDF), RoundedCornerShape(20.dp))
+            .padding(horizontal = 12.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -404,7 +404,7 @@ private fun TodayPlanCard(progress: TodayPlanProgress, onAddMedicine: () -> Unit
             contentAlignment = Alignment.Center
         ) {
             Canvas(Modifier.fillMaxSize().padding(3.dp)) {
-                val strokeWidth = 8.dp.toPx()
+                val strokeWidth = 7.dp.toPx()
                 drawArc(
                     color = Color(0xFFDCEDE2), startAngle = -90f, sweepAngle = 360f,
                     useCenter = false, style = Stroke(strokeWidth, cap = StrokeCap.Round)
@@ -420,10 +420,10 @@ private fun TodayPlanCard(progress: TodayPlanProgress, onAddMedicine: () -> Unit
                 Text("${progress.completedDoses}/${progress.totalDoses} doses", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, maxLines = 1)
             }
         }
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            Text("TODAY’S PLAN", style = MaterialTheme.typography.labelLarge, color = MedMitraColors.MintDark, letterSpacing = 1.1.sp)
-            Spacer(Modifier.height(5.dp))
+            Text("TODAY’S PLAN", style = MaterialTheme.typography.labelLarge, color = MedMitraColors.MintDark, letterSpacing = .9.sp)
+            Spacer(Modifier.height(3.dp))
             Text(
                 if (empty) "No medicines scheduled today." else "${progress.completedDoses} of ${progress.totalDoses} doses completed",
                 style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text
@@ -435,8 +435,8 @@ private fun TodayPlanCard(progress: TodayPlanProgress, onAddMedicine: () -> Unit
                     Text("Add medicine", color = MedMitraColors.MintDark)
                 }
             } else {
-                Spacer(Modifier.height(4.dp))
-                Text("Keep up your healthy routine", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
+                Spacer(Modifier.height(2.dp))
+                Text("Keep up your healthy routine", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, fontSize = 13.sp)
             }
         }
     }
@@ -447,18 +447,18 @@ private fun SosPreview(onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
             .shadow(2.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x12A54F48), spotColor = Color(0x12A54F48))
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(MedMitraColors.CoralPale)
-            .border(1.dp, Color(0xFFF0D9D4), RoundedCornerShape(20.dp))
+            .border(1.dp, Color(0xFFF0D9D4), RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
+            .heightIn(min = 52.dp).padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconBadge(Icons.Filled.Sos, tint = MedMitraColors.Coral, size = 40)
-        Spacer(Modifier.width(11.dp))
+        IconBadge(Icons.Filled.Sos, tint = MedMitraColors.Coral, size = 34)
+        Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
-            Text("Need help?", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-            Text("Start a cancelable SOS flow", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
+            Text("Need help?", style = MaterialTheme.typography.titleSmall, color = MedMitraColors.Text)
+            Text("Start a cancelable SOS flow", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, fontSize = 12.sp)
         }
         TextButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp)) {
             Text("Open", color = MedMitraColors.Coral, fontWeight = FontWeight.SemiBold)
@@ -468,13 +468,13 @@ private fun SosPreview(onClick: () -> Unit) {
 
 @Composable
 private fun ShortcutCard(feature: Feature, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    PlainCard(modifier.height(84.dp), onClick = onClick) {
+    PlainCard(modifier.height(72.dp), onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(feature.icon, tint = feature.tint, size = 32)
-            Spacer(Modifier.width(8.dp))
+            IconBadge(feature.icon, tint = feature.tint, size = 29)
+            Spacer(Modifier.width(7.dp))
             Column(Modifier.weight(1f)) {
-                Text(feature.shortTitle, style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp)
-                Text(feature.subtitle, style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, maxLines = 2, fontSize = 11.sp)
+                Text(feature.shortTitle, style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, lineHeight = 16.sp)
+                Text(feature.subtitle, style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp, lineHeight = 14.sp)
             }
         }
     }
