@@ -1,4 +1,4 @@
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/medmitra_launcher_logo" />
+    <background android:drawable="@drawable/medmitra_launcher_safe_area" />
     <foreground android:drawable="@drawable/medmitra_launcher_clear_foreground" />
 </adaptive-icon>
