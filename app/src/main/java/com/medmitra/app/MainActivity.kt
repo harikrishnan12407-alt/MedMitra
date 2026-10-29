@@ -116,7 +116,8 @@ private fun MedMitraApp(startDestination: String = "home") {
         MedMitraSplash {
             if (showSplash) {
                 navigationStart = StartupDestination.afterSplash(
-                    com.medmitra.app.profile.ProfilePreferences.shouldShowOnboarding(context)
+                    showPermissionSetup = !com.medmitra.app.permissions.PermissionSetupPreferences.isComplete(context),
+                    showOnboarding = com.medmitra.app.profile.ProfilePreferences.shouldShowOnboarding(context)
                 )
                 showSplash = false
             }
@@ -169,7 +170,26 @@ private fun MedMitraNavigation(startDestination: String) {
         NavHost(navController = nav, startDestination = startDestination, modifier = Modifier.padding(innerPadding)) {
             composable("home") { HomeScreen(onOpen = { nav.navigate("feature/$it") }) }
             composable("history") { HistoryScreen() }
-            composable("profile") { ProfileScreen(onOpen = { nav.navigate("feature/$it") }, onEdit = { nav.navigate("profile/setup") }) }
+            composable("profile") {
+                ProfileScreen(
+                    onOpen = { nav.navigate("feature/$it") },
+                    onEdit = { nav.navigate("profile/setup") },
+                    onPermissions = { nav.navigate("permissions") }
+                )
+            }
+            composable("permissions") {
+                com.medmitra.app.permissions.PermissionSetupScreen(
+                    onDone = {
+                        com.medmitra.app.permissions.PermissionSetupPreferences.markComplete(context)
+                        if (nav.previousBackStackEntry?.destination?.route == "profile") nav.popBackStack()
+                        else {
+                            val next = if (com.medmitra.app.profile.ProfilePreferences.shouldShowOnboarding(context)) "profile/setup" else "home"
+                            nav.navigate(next) { popUpTo("permissions") { inclusive = true } }
+                        }
+                    },
+                    onBack = if (nav.previousBackStackEntry != null) ({ nav.popBackStack() }) else null
+                )
+            }
             composable("profile/setup") {
                 com.medmitra.app.profile.ProfileSetupScreen(
                     onBack = if (com.medmitra.app.profile.ProfilePreferences.completed(context)) ({ nav.popBackStack() }) else null,
@@ -210,6 +230,8 @@ private val features = listOf(
 @Composable
 private fun HomeScreen(onOpen: (String) -> Unit) {
     val context = LocalContext.current
+    val profile by com.medmitra.app.profile.ProfilePreferences.observe(context)
+        .collectAsState(initial = com.medmitra.app.profile.ProfilePreferences.read(context))
     val database = remember(context) { MedMitraDatabase.get(context) }
     val schedules by database.medicines().observeAll().collectAsState(initial = emptyList())
     val doseEvents by database.medicineDoseHistory().observeAll().collectAsState(initial = emptyList())
@@ -264,12 +286,7 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
                     Text("Welcome to MedMitra", style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
                     Text("Your care, at a glance", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
                 }
-                Box(
-                    Modifier.size(40.dp).clip(CircleShape).background(MedMitraColors.MintPale),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("M", color = MedMitraColors.MintDark, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                }
+                com.medmitra.app.profile.ProfileAvatar(profile.photoUri, profile.fullName, Modifier.size(40.dp))
             }
         }
 
@@ -512,7 +529,7 @@ private fun HistoryContent() {
 }
 
 @Composable
-private fun ProfileScreen(onOpen: (String) -> Unit, onEdit: () -> Unit) {
+private fun ProfileScreen(onOpen: (String) -> Unit, onEdit: () -> Unit, onPermissions: () -> Unit) {
     val context = LocalContext.current
     var profile by remember { mutableStateOf(com.medmitra.app.profile.ProfilePreferences.read(context)) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -540,6 +557,9 @@ private fun ProfileScreen(onOpen: (String) -> Unit, onEdit: () -> Unit) {
         Text("Your care settings", style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
         listOf("reminder" to "Medicine reminders", "voice" to "Voice reminder message", "contacts" to "Emergency setup", "fall" to "Fall safety").forEach { (route, label) ->
             PlainCard(Modifier.fillMaxWidth(), onClick = { onOpen(route) }) { InfoRow(Icons.Filled.Settings, label, "Manage local settings", tint = MedMitraColors.Sage) }
+        }
+        PlainCard(Modifier.fillMaxWidth(), onClick = onPermissions) {
+            InfoRow(Icons.Filled.Security, "Permission setup", "Review Android access and current status", tint = MedMitraColors.MintDark)
         }
         Text("Profile details are stored on this device.", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
     }

@@ -21,4 +21,11 @@ class StartupDestinationTest {
         assertEquals("profile/setup", StartupDestination.afterSplash(true))
         assertEquals("home", StartupDestination.afterSplash(false))
     }
+
+    @Test
+    fun firstLaunchPermissionChecklistPrecedesProfileOnboarding() {
+        assertEquals("permissions", StartupDestination.afterSplash(showPermissionSetup = true, showOnboarding = true))
+        assertEquals("profile/setup", StartupDestination.afterSplash(showPermissionSetup = false, showOnboarding = true))
+        assertEquals("home", StartupDestination.afterSplash(showPermissionSetup = false, showOnboarding = false))
+    }
 }

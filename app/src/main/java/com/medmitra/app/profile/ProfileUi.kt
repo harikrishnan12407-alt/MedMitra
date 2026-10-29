@@ -22,6 +22,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -52,6 +54,8 @@ import com.medmitra.app.ui.theme.MedMitraColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 data class UserProfile(
     val fullName: String,
@@ -65,6 +69,7 @@ data class UserProfile(
 object ProfilePreferences {
     private const val FILE = "user_profile"
     private fun prefs(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+    @Volatile private var savedProfile: MutableStateFlow<UserProfile>? = null
     fun completed(context: Context) = prefs(context).getBoolean("completed", false)
     fun shouldShowOnboarding(context: Context): Boolean {
         if (completed(context)) return false
@@ -78,10 +83,15 @@ object ProfilePreferences {
         prefs(context).getString("photo", "").orEmpty(), prefs(context).getString("language", "English").orEmpty(),
         prefs(context).getString("emergency_name", "").orEmpty(), prefs(context).getString("emergency_phone", "").orEmpty()
     )
+    @Synchronized
+    fun observe(context: Context): StateFlow<UserProfile> = savedProfile
+        ?: MutableStateFlow(read(context)).also { savedProfile = it }
+
     fun save(context: Context, profile: UserProfile) {
         prefs(context).edit().putBoolean("completed", true).putString("name", profile.fullName)
             .putInt("age", profile.age).putString("photo", profile.photoUri).putString("language", profile.language)
             .putString("emergency_name", profile.emergencyName).putString("emergency_phone", profile.emergencyPhone).apply()
+        savedProfile?.value = profile
     }
 }
 
@@ -186,11 +196,18 @@ fun ProfileAvatar(uri: String, name: String, modifier: Modifier = Modifier) {
         if (bitmap != null) Image(bitmap!!.asImageBitmap(), contentDescription = "Profile photo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else {
             androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().clip(CircleShape), contentAlignment = Alignment.Center) {
-                Text(name.trim().split(Regex("\\s+")).take(2).mapNotNull { it.firstOrNull() }.joinToString("").ifBlank { "M" }.uppercase(), color = MedMitraColors.MintDark, fontWeight = FontWeight.Bold)
+                val initial = profileInitial(name)
+                if (initial == null) {
+                    Icon(Icons.Filled.Person, contentDescription = "Profile", tint = MedMitraColors.MintDark, modifier = Modifier.size(30.dp))
+                } else {
+                    Text(initial, color = MedMitraColors.MintDark, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
 }
+
+fun profileInitial(name: String): String? = name.trim().firstOrNull()?.uppercase()
 
 private fun decodeProfileBitmap(context: Context, uri: Uri): android.graphics.Bitmap? {
     val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
