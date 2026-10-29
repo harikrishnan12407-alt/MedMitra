@@ -5,8 +5,6 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.*
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,6 +42,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.medmitra.app.data.MedMitraDatabase
+import com.medmitra.app.domain.StartupDestination
 import com.medmitra.app.ui.components.FrostedCard
 import com.medmitra.app.ui.components.IconBadge
 import com.medmitra.app.ui.components.InfoRow
@@ -59,13 +58,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
-        val startDestination = when {
-            intent.getBooleanExtra(com.medmitra.app.reminders.ReminderScheduler.EXTRA_OPEN_REMINDERS, false) -> "feature/reminder"
-            intent.getBooleanExtra(com.medmitra.app.fall.FallMonitoringService.EXTRA_OPEN_SOS, false) -> "feature/sos"
-            intent.getBooleanExtra(com.medmitra.app.fall.FallMonitoringService.EXTRA_OPEN_FALL, false) -> "feature/fall"
-            else -> "splash"
-        }
-        val showingSplash = startDestination == "splash"
+        val startDestination = StartupDestination.initial(
+            openReminders = intent.getBooleanExtra(com.medmitra.app.reminders.ReminderScheduler.EXTRA_OPEN_REMINDERS, false),
+            openSos = intent.getBooleanExtra(com.medmitra.app.fall.FallMonitoringService.EXTRA_OPEN_SOS, false),
+            openFall = intent.getBooleanExtra(com.medmitra.app.fall.FallMonitoringService.EXTRA_OPEN_FALL, false)
+        )
+        val showingSplash = startDestination == StartupDestination.SPLASH
         WindowCompat.setDecorFitsSystemWindows(window, true)
         val initialSystemBarColor = if (showingSplash) android.graphics.Color.rgb(6, 43, 36) else android.graphics.Color.rgb(245, 249, 246)
         window.statusBarColor = initialSystemBarColor
@@ -79,23 +77,45 @@ class MainActivity : ComponentActivity() {
 }
 @Composable
 private fun MedMitraApp(startDestination: String = "home") {
-    val nav = rememberNavController()
     val context = LocalContext.current
-    val entry by nav.currentBackStackEntryAsState()
-    val route = entry?.destination?.route ?: startDestination
+    val startup = startDestination == StartupDestination.SPLASH
+    var showSplash by remember(startDestination) { mutableStateOf(startup) }
+    var navigationStart by remember(startDestination) {
+        mutableStateOf(startDestination.takeUnless { it == StartupDestination.SPLASH })
+    }
     val activity = context as? ComponentActivity
     SideEffect {
-        val showingSplash = route == "splash"
-        val barColor = if (showingSplash) android.graphics.Color.rgb(6, 43, 36) else android.graphics.Color.rgb(245, 249, 246)
+        val barColor = if (showSplash) android.graphics.Color.rgb(6, 43, 36) else android.graphics.Color.rgb(245, 249, 246)
         activity?.window?.let { window ->
             window.statusBarColor = barColor
             window.navigationBarColor = barColor
             WindowInsetsControllerCompat(window, window.decorView).apply {
-                isAppearanceLightStatusBars = !showingSplash
-                isAppearanceLightNavigationBars = !showingSplash
+                isAppearanceLightStatusBars = !showSplash
+                isAppearanceLightNavigationBars = !showSplash
             }
         }
     }
+
+    if (showSplash) {
+        MedMitraSplash {
+            if (showSplash) {
+                navigationStart = StartupDestination.afterSplash(
+                    com.medmitra.app.profile.ProfilePreferences.shouldShowOnboarding(context)
+                )
+                showSplash = false
+            }
+        }
+    } else {
+        MedMitraNavigation(startDestination = navigationStart ?: startDestination)
+    }
+}
+
+@Composable
+private fun MedMitraNavigation(startDestination: String) {
+    val nav = rememberNavController()
+    val context = LocalContext.current
+    val entry by nav.currentBackStackEntryAsState()
+    val route = entry?.destination?.route ?: startDestination
 
     Scaffold(
         containerColor = MedMitraColors.Background,
@@ -131,18 +151,6 @@ private fun MedMitraApp(startDestination: String = "home") {
         }
     ) { innerPadding ->
         NavHost(navController = nav, startDestination = startDestination, modifier = Modifier.padding(innerPadding)) {
-            composable(
-                route = "splash",
-                enterTransition = { EnterTransition.None },
-                exitTransition = { ExitTransition.None }
-            ) {
-                MedMitraSplash {
-                    nav.navigate(if (com.medmitra.app.profile.ProfilePreferences.shouldShowOnboarding(context)) "profile/setup" else "home") {
-                        popUpTo("splash") { inclusive = true }
-                        launchSingleTop = true
-                    }
-                }
-            }
             composable("home") { HomeScreen(onOpen = { nav.navigate("feature/$it") }) }
             composable("history") { HistoryScreen() }
             composable("profile") { ProfileScreen(onOpen = { nav.navigate("feature/$it") }, onEdit = { nav.navigate("profile/setup") }) }
