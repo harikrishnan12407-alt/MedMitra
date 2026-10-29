@@ -232,6 +232,30 @@ private val features = listOf(
     Feature("history", "Emergency History", "History", "Recent activity", Icons.Filled.History)
 )
 
+private object HomeDashboardArrangement : Arrangement.Vertical {
+    override val spacing = 7.dp
+
+    override fun androidx.compose.ui.unit.Density.arrange(
+        totalSize: Int,
+        sizes: IntArray,
+        outPositions: IntArray
+    ) {
+        val gapCount = (sizes.size - 1).coerceAtLeast(0)
+        val baseGap = spacing.roundToPx()
+        val extraSpace = (totalSize - sizes.sum() - baseGap * gapCount).coerceAtLeast(0)
+        val extraPerGap = if (gapCount == 0) 0 else extraSpace / gapCount
+        val extraRemainder = if (gapCount == 0) 0 else extraSpace % gapCount
+        var position = 0
+        sizes.forEachIndexed { index, size ->
+            outPositions[index] = position
+            position += size
+            if (index < gapCount) {
+                position += baseGap + extraPerGap + (if (index < extraRemainder) 1 else 0)
+            }
+        }
+    }
+}
+
 @Composable
 private fun HomeScreen(onOpen: (String) -> Unit) {
     val context = LocalContext.current
@@ -283,7 +307,7 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
       LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 5.dp, bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
+        verticalArrangement = HomeDashboardArrangement
       ) {
         item {
             HomeWelcomeCard(profile)
@@ -312,9 +336,7 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
                     }
                 }
             }
-        }
-
-        item {
+            Spacer(Modifier.height(7.dp))
             Text(
                 "SOS actions follow your saved consent settings. Fall monitoring and spoken reminders are opt-in.",
                 style = MaterialTheme.typography.bodyMedium,
