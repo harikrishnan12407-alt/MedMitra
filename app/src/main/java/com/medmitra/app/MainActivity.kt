@@ -59,18 +59,20 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
-        window.statusBarColor = android.graphics.Color.rgb(245, 249, 246)
-        window.navigationBarColor = android.graphics.Color.rgb(245, 249, 246)
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            isAppearanceLightStatusBars = true
-            isAppearanceLightNavigationBars = true
-        }
         val startDestination = when {
             intent.getBooleanExtra(com.medmitra.app.reminders.ReminderScheduler.EXTRA_OPEN_REMINDERS, false) -> "feature/reminder"
             intent.getBooleanExtra(com.medmitra.app.fall.FallMonitoringService.EXTRA_OPEN_SOS, false) -> "feature/sos"
             intent.getBooleanExtra(com.medmitra.app.fall.FallMonitoringService.EXTRA_OPEN_FALL, false) -> "feature/fall"
             else -> "splash"
+        }
+        val showingSplash = startDestination == "splash"
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        val initialSystemBarColor = if (showingSplash) android.graphics.Color.rgb(6, 43, 36) else android.graphics.Color.rgb(245, 249, 246)
+        window.statusBarColor = initialSystemBarColor
+        window.navigationBarColor = initialSystemBarColor
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !showingSplash
+            isAppearanceLightNavigationBars = !showingSplash
         }
         setContent { MedMitraTheme { MedMitraApp(startDestination = startDestination) } }
     }
@@ -81,6 +83,19 @@ private fun MedMitraApp(startDestination: String = "home") {
     val context = LocalContext.current
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "home"
+    val activity = context as? ComponentActivity
+    SideEffect {
+        val showingSplash = route == "splash"
+        val barColor = if (showingSplash) android.graphics.Color.rgb(6, 43, 36) else android.graphics.Color.rgb(245, 249, 246)
+        activity?.window?.let { window ->
+            window.statusBarColor = barColor
+            window.navigationBarColor = barColor
+            WindowInsetsControllerCompat(window, window.decorView).apply {
+                isAppearanceLightStatusBars = !showingSplash
+                isAppearanceLightNavigationBars = !showingSplash
+            }
+        }
+    }
 
     Scaffold(
         containerColor = MedMitraColors.Background,
@@ -436,6 +451,7 @@ private fun MedMitraSplash(onFinished: () -> Unit) {
     val logoAlpha by animateFloatAsState(if (revealed || !animationsEnabled) 1f else 0f, tween(360), label = "brand-logo-alpha")
     val titleAlpha by animateFloatAsState(if (revealed || !animationsEnabled) 1f else 0f, tween(430, delayMillis = 170), label = "brand-title-alpha")
     val taglineAlpha by animateFloatAsState(if (revealed || !animationsEnabled) 1f else 0f, tween(420, delayMillis = 300), label = "brand-tagline-alpha")
+    val backdropAlpha by animateFloatAsState(if (revealed || !animationsEnabled) 1f else 0f, tween(520), label = "brand-backdrop-alpha")
     val ornament = rememberInfiniteTransition(label = "brand-ornaments")
     val ornamentOffset by ornament.animateFloat(-5f, 5f, infiniteRepeatable(tween(2_400, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "ornament-float")
     LaunchedEffect(Unit) {
@@ -445,16 +461,17 @@ private fun MedMitraSplash(onFinished: () -> Unit) {
     }
 
     Box(
-        Modifier.fillMaxSize().background(
-            Brush.verticalGradient(listOf(Color(0xFF062B24), Color(0xFF0B493B), Color(0xFF0E5A46)))
-        ),
+        Modifier.fillMaxSize().background(Color(0xFF062B24)),
         contentAlignment = Alignment.Center
     ) {
-        Box(Modifier.align(Alignment.TopEnd).padding(top = 118.dp, end = 48.dp).offset(y = ornamentOffset.dp)
+        Box(Modifier.fillMaxSize().alpha(backdropAlpha).background(
+            Brush.verticalGradient(listOf(Color(0xFF062B24), Color(0xFF0B493B), Color(0xFF0E5A46)))
+        ))
+        Box(Modifier.align(Alignment.TopEnd).alpha(backdropAlpha).padding(top = 118.dp, end = 48.dp).offset(y = ornamentOffset.dp)
             .size(9.dp).background(Color(0x667EE4B5), CircleShape))
-        Box(Modifier.align(Alignment.BottomStart).padding(start = 55.dp, bottom = 142.dp).offset(y = (-ornamentOffset).dp)
+        Box(Modifier.align(Alignment.BottomStart).alpha(backdropAlpha).padding(start = 55.dp, bottom = 142.dp).offset(y = (-ornamentOffset).dp)
             .size(6.dp).background(Color(0x667EE4B5), CircleShape))
-        Box(Modifier.align(Alignment.Center).offset(x = 112.dp, y = (-104).dp).size(14.dp)
+        Box(Modifier.align(Alignment.Center).alpha(backdropAlpha).offset(x = 112.dp, y = (-104).dp).size(14.dp)
             .background(Color(0x337EE4B5), CircleShape))
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 30.dp)) {
             Box(
