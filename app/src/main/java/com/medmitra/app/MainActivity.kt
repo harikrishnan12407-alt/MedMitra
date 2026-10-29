@@ -347,24 +347,34 @@ private fun HomeWelcomeCard(profile: com.medmitra.app.profile.UserProfile) {
                     .background(Color.White.copy(alpha = .045f), CircleShape)
             )
             Row(
-                Modifier.fillMaxWidth().heightIn(min = 68.dp).padding(horizontal = 16.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(Modifier.weight(1f)) {
-                    Text("YOUR DAILY CARE", style = MaterialTheme.typography.labelMedium, color = MedMitraColors.MintGlow, letterSpacing = .9.sp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "YOUR DAILY CARE",
+                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold),
+                        color = MedMitraColors.MintGlow,
+                        letterSpacing = .9.sp
+                    )
                     Text(
                         if (profile.fullName.isBlank()) "Welcome to MedMitra" else "Welcome back, $firstName",
                         style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 22.sp),
                         color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp)
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Text("Your health, at a glance", style = MaterialTheme.typography.bodyMedium, color = Color(0xFFD7F0E2), fontSize = 13.sp)
+                    Text(
+                        "Your health, at a glance",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
+                        color = Color(0xFFD7F0E2),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(12.dp))
                 Box(
-                    Modifier.size(46.dp).border(1.dp, Color.White.copy(alpha = .68f), CircleShape).padding(2.dp),
+                    Modifier.size(48.dp).border(1.dp, Color.White.copy(alpha = .68f), CircleShape).padding(2.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     com.medmitra.app.profile.ProfileAvatar(profile.photoUri, profile.fullName, Modifier.fillMaxSize())
