@@ -233,7 +233,7 @@ private val features = listOf(
 )
 
 private object HomeDashboardArrangement : Arrangement.Vertical {
-    override val spacing = 7.dp
+    override val spacing = 8.dp
 
     override fun androidx.compose.ui.unit.Density.arrange(
         totalSize: Int,
@@ -315,7 +315,9 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
 
         item {
             SectionHeading("Today’s medicines", "See schedule") { onOpen("reminder") }
-            Spacer(Modifier.height(3.dp))
+        }
+
+        item {
             TodayPlanCard(todayProgress, onAddMedicine = { onOpen("reminder") })
         }
 
@@ -325,18 +327,19 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
 
         item {
             SectionHeading("Your shortcuts")
-            Spacer(Modifier.height(2.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                features.chunked(2).forEach { rowFeatures ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        rowFeatures.forEach { feature ->
-                            ShortcutCard(feature, Modifier.weight(1f)) { onOpen(feature.id) }
-                        }
-                        if (rowFeatures.size == 1) Spacer(Modifier.weight(1f))
+        }
+
+        features.chunked(2).forEach { rowFeatures ->
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    rowFeatures.forEach { feature ->
+                        ShortcutCard(feature, Modifier.weight(1f)) { onOpen(feature.id) }
                     }
                 }
             }
-            Spacer(Modifier.height(7.dp))
+        }
+
+        item {
             Text(
                 "SOS actions follow your saved consent settings. Fall monitoring and spoken reminders are opt-in.",
                 style = MaterialTheme.typography.bodyMedium,
