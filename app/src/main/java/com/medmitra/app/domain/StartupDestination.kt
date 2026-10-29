@@ -15,14 +15,6 @@ object StartupDestination {
         else -> SPLASH
     }
 
-    fun afterSplash(showOnboarding: Boolean): String = afterSplash(
-        showPermissionSetup = false,
-        showOnboarding = showOnboarding
-    )
-
-    fun afterSplash(showPermissionSetup: Boolean, showOnboarding: Boolean): String = when {
-        showPermissionSetup -> "permissions"
-        showOnboarding -> "profile/setup"
-        else -> "home"
-    }
+    fun afterSplash(showOnboarding: Boolean): String =
+        if (showOnboarding) "profile/setup" else "home"
 }

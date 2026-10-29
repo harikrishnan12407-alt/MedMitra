@@ -1,6 +1,9 @@
 package com.medmitra.app
 
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -46,6 +49,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.content.ContextCompat
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -55,6 +60,7 @@ import androidx.navigation.navArgument
 import com.medmitra.app.data.MedMitraDatabase
 import com.medmitra.app.domain.StartupDestination
 import com.medmitra.app.domain.TodayPlanProgress
+import com.medmitra.app.domain.NotificationPermissionPromptPolicy
 import com.medmitra.app.domain.calculateTodayPlanProgress
 import com.medmitra.app.ui.components.FrostedCard
 import com.medmitra.app.ui.components.IconBadge
@@ -116,7 +122,6 @@ private fun MedMitraApp(startDestination: String = "home") {
         MedMitraSplash {
             if (showSplash) {
                 navigationStart = StartupDestination.afterSplash(
-                    showPermissionSetup = !com.medmitra.app.permissions.PermissionSetupPreferences.isComplete(context),
                     showOnboarding = com.medmitra.app.profile.ProfilePreferences.shouldShowOnboarding(context)
                 )
                 showSplash = false
@@ -133,6 +138,8 @@ private fun MedMitraNavigation(startDestination: String) {
     val context = LocalContext.current
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: startDestination
+
+    if (route == "home") FirstLaunchNotificationPermissionPrompt()
 
     Scaffold(
         containerColor = MedMitraColors.Background,
@@ -170,26 +177,7 @@ private fun MedMitraNavigation(startDestination: String) {
         NavHost(navController = nav, startDestination = startDestination, modifier = Modifier.padding(innerPadding)) {
             composable("home") { HomeScreen(onOpen = { nav.navigate("feature/$it") }) }
             composable("history") { HistoryScreen() }
-            composable("profile") {
-                ProfileScreen(
-                    onOpen = { nav.navigate("feature/$it") },
-                    onEdit = { nav.navigate("profile/setup") },
-                    onPermissions = { nav.navigate("permissions") }
-                )
-            }
-            composable("permissions") {
-                com.medmitra.app.permissions.PermissionSetupScreen(
-                    onDone = {
-                        com.medmitra.app.permissions.PermissionSetupPreferences.markComplete(context)
-                        if (nav.previousBackStackEntry?.destination?.route == "profile") nav.popBackStack()
-                        else {
-                            val next = if (com.medmitra.app.profile.ProfilePreferences.shouldShowOnboarding(context)) "profile/setup" else "home"
-                            nav.navigate(next) { popUpTo("permissions") { inclusive = true } }
-                        }
-                    },
-                    onBack = if (nav.previousBackStackEntry != null) ({ nav.popBackStack() }) else null
-                )
-            }
+            composable("profile") { ProfileScreen(onOpen = { nav.navigate("feature/$it") }, onEdit = { nav.navigate("profile/setup") }) }
             composable("profile/setup") {
                 com.medmitra.app.profile.ProfileSetupScreen(
                     onBack = if (com.medmitra.app.profile.ProfilePreferences.completed(context)) ({ nav.popBackStack() }) else null,
@@ -206,6 +194,32 @@ private fun MedMitraNavigation(startDestination: String) {
                     onBack = { nav.popBackStack() }
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun FirstLaunchNotificationPermissionPrompt() {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(context) {
+        if (Build.VERSION.SDK_INT < 33) return@LaunchedEffect
+        val preferences = context.getSharedPreferences("first_launch_permissions", android.content.Context.MODE_PRIVATE)
+        val alreadyAsked = preferences.getBoolean("notifications_asked", false)
+        val legacyChecklistCompleted = context.getSharedPreferences("permission_setup", android.content.Context.MODE_PRIVATE)
+            .getBoolean("complete", false)
+        val isGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        if (isGranted) {
+            preferences.edit().putBoolean("notifications_asked", true).apply()
+        } else if (NotificationPermissionPromptPolicy.shouldRequest(
+                sdkInt = Build.VERSION.SDK_INT,
+                alreadyAsked = alreadyAsked,
+                alreadyGranted = isGranted,
+                previouslyReviewedInLegacySetup = legacyChecklistCompleted
+            )
+        ) {
+            preferences.edit().putBoolean("notifications_asked", true).apply()
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 }
@@ -529,7 +543,7 @@ private fun HistoryContent() {
 }
 
 @Composable
-private fun ProfileScreen(onOpen: (String) -> Unit, onEdit: () -> Unit, onPermissions: () -> Unit) {
+private fun ProfileScreen(onOpen: (String) -> Unit, onEdit: () -> Unit) {
     val context = LocalContext.current
     var profile by remember { mutableStateOf(com.medmitra.app.profile.ProfilePreferences.read(context)) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -557,9 +571,6 @@ private fun ProfileScreen(onOpen: (String) -> Unit, onEdit: () -> Unit, onPermis
         Text("Your care settings", style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
         listOf("reminder" to "Medicine reminders", "voice" to "Voice reminder message", "contacts" to "Emergency setup", "fall" to "Fall safety").forEach { (route, label) ->
             PlainCard(Modifier.fillMaxWidth(), onClick = { onOpen(route) }) { InfoRow(Icons.Filled.Settings, label, "Manage local settings", tint = MedMitraColors.Sage) }
-        }
-        PlainCard(Modifier.fillMaxWidth(), onClick = onPermissions) {
-            InfoRow(Icons.Filled.Security, "Permission setup", "Review Android access and current status", tint = MedMitraColors.MintDark)
         }
         Text("Profile details are stored on this device.", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
     }
