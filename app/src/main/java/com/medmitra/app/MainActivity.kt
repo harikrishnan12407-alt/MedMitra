@@ -348,26 +348,26 @@ private fun HomeWelcomeCard(profile: com.medmitra.app.profile.UserProfile) {
                     .background(Color.White.copy(alpha = .045f), CircleShape)
             )
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().heightIn(min = 68.dp).padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     Text(
                         "YOUR DAILY CARE",
-                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold),
                         color = MedMitraColors.MintGlow,
                         letterSpacing = .9.sp
                     )
                     Text(
                         if (profile.fullName.isBlank()) "Welcome to MedMitra" else "Welcome back, $firstName",
-                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 22.sp),
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 20.sp),
                         color = Color.White,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         "Your health, at a glance",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 15.sp),
                         color = Color(0xFFD7F0E2),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
