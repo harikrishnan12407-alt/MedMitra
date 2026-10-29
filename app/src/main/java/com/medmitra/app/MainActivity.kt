@@ -333,7 +333,6 @@ private fun HomeWelcomeCard(profile: com.medmitra.app.profile.UserProfile) {
     val firstName = profile.fullName.trim().substringBefore(' ').ifBlank { "friend" }
     AnimatedVisibility(
         visible = true,
-        modifier = Modifier.padding(top = 8.dp),
         enter = fadeIn(tween(360)) + slideInVertically(tween(360, easing = FastOutSlowInEasing)) { it / 12 }
     ) {
         Box(
@@ -344,11 +343,15 @@ private fun HomeWelcomeCard(profile: com.medmitra.app.profile.UserProfile) {
                 .border(1.dp, Color.White.copy(alpha = .18f), RoundedCornerShape(20.dp))
         ) {
             Box(
-                Modifier.align(Alignment.TopEnd).offset(x = 30.dp, y = (-46).dp).size(138.dp)
-                    .background(Color.White.copy(alpha = .045f), CircleShape)
-            )
+                Modifier.matchParentSize()
+            ) {
+                Box(
+                    Modifier.align(Alignment.TopEnd).offset(x = 30.dp, y = (-46).dp).size(138.dp)
+                        .background(Color.White.copy(alpha = .045f), CircleShape)
+                )
+            }
             Row(
-                Modifier.fillMaxWidth().heightIn(min = 68.dp).padding(horizontal = 14.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -362,14 +365,14 @@ private fun HomeWelcomeCard(profile: com.medmitra.app.profile.UserProfile) {
                         if (profile.fullName.isBlank()) "Welcome to MedMitra" else "Welcome back, $firstName",
                         style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 20.sp),
                         color = Color.White,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         "Your health, at a glance",
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 15.sp),
                         color = Color(0xFFD7F0E2),
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
