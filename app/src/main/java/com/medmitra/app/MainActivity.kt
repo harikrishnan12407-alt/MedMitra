@@ -1,10 +1,15 @@
 package com.medmitra.app
 
 import android.os.Bundle
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,6 +33,11 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -43,6 +54,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.medmitra.app.data.MedMitraDatabase
 import com.medmitra.app.domain.StartupDestination
+import com.medmitra.app.domain.TodayPlanProgress
+import com.medmitra.app.domain.calculateTodayPlanProgress
 import com.medmitra.app.ui.components.FrostedCard
 import com.medmitra.app.ui.components.IconBadge
 import com.medmitra.app.ui.components.InfoRow
@@ -52,6 +65,9 @@ import com.medmitra.app.ui.components.SectionHeading
 import com.medmitra.app.ui.theme.MedMitraColors
 import com.medmitra.app.ui.theme.MedMitraTheme
 import kotlinx.coroutines.delay
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 class MainActivity : ComponentActivity() {
     @Suppress("DEPRECATION")
@@ -194,7 +210,48 @@ private val features = listOf(
 @Composable
 private fun HomeScreen(onOpen: (String) -> Unit) {
     val context = LocalContext.current
-    val schedules by MedMitraDatabase.get(context).medicines().observeAll().collectAsState(initial = emptyList())
+    val database = remember(context) { MedMitraDatabase.get(context) }
+    val schedules by database.medicines().observeAll().collectAsState(initial = emptyList())
+    val doseEvents by database.medicineDoseHistory().observeAll().collectAsState(initial = emptyList())
+    var today by remember { mutableStateOf(LocalDate.now()) }
+    var localZone by remember { mutableStateOf(ZoneId.systemDefault()) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val refreshDate = {
+        today = LocalDate.now()
+        localZone = ZoneId.systemDefault()
+    }
+    androidx.compose.runtime.LaunchedEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) refreshDate()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        try {
+            kotlinx.coroutines.awaitCancellation()
+        } finally {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) { refreshDate() }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_DATE_CHANGED)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+    androidx.compose.runtime.LaunchedEffect(today, localZone) {
+        val nextDay = ZonedDateTime.now(localZone).toLocalDate().plusDays(1).atStartOfDay(localZone)
+        val waitMillis = (nextDay.toInstant().toEpochMilli() - System.currentTimeMillis()).coerceAtLeast(1L)
+        delay(waitMillis)
+        refreshDate()
+    }
+    val todayProgress = remember(schedules, doseEvents, today, localZone) {
+        calculateTodayPlanProgress(schedules, doseEvents, today, localZone)
+    }
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFF0FAF4), MedMitraColors.Background, Color(0xFFF8FBF9))))) {
       LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -219,28 +276,7 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
         item {
             SectionHeading("Today’s medicines", "See schedule") { onOpen("reminder") }
             Spacer(Modifier.height(8.dp))
-            if (schedules.none { it.enabled }) {
-                FrostedCard(Modifier.fillMaxWidth()) {
-                    Text("No active medicine reminders", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-                    Text("Add a schedule to see it here.", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
-                    TextButton(onClick = { onOpen("reminder") }) { Text("Add medicine", color = MedMitraColors.MintDark) }
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    schedules.filter { it.enabled }.take(3).forEach { medicine ->
-                        FrostedCard(Modifier.fillMaxWidth()) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconBadge(Icons.Filled.Medication, tint = MedMitraColors.MintDark, size = 38)
-                                Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                                    Text(medicine.name, style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-                                    Text(medicine.dosage, style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
-                                }
-                                Text(java.time.LocalTime.of(medicine.hour, medicine.minute).format(java.time.format.DateTimeFormatter.ofPattern("h:mm a")), color = MedMitraColors.MintDark, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-                }
-            }
+            TodayPlanCard(todayProgress, onAddMedicine = { onOpen("reminder") })
         }
 
         item {
@@ -273,6 +309,74 @@ private fun HomeScreen(onOpen: (String) -> Unit) {
             )
         }
       }
+    }
+}
+
+@Composable
+private fun TodayPlanCard(progress: TodayPlanProgress, onAddMedicine: () -> Unit) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress.fraction,
+        animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+        label = "todayPlanProgress"
+    )
+    val animatedPercentage by animateIntAsState(
+        targetValue = progress.percentage,
+        animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+        label = "todayPlanPercentage"
+    )
+    val empty = progress.totalDoses == 0
+    val ringSize = 104.dp
+    Row(
+        Modifier.fillMaxWidth()
+            .shadow(3.dp, RoundedCornerShape(24.dp), ambientColor = Color(0x18329A79), spotColor = Color(0x18329A79))
+            .clip(RoundedCornerShape(24.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0xFFEAF7EF), Color(0xFFF7FCF8))))
+            .border(1.dp, Color(0xFFD8EBDF), RoundedCornerShape(24.dp))
+            .padding(horizontal = 15.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(ringSize).semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(progress.fraction, 0f..1f)
+            },
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(Modifier.fillMaxSize().padding(3.dp)) {
+                val strokeWidth = 8.dp.toPx()
+                drawArc(
+                    color = Color(0xFFDCEDE2), startAngle = -90f, sweepAngle = 360f,
+                    useCenter = false, style = Stroke(strokeWidth, cap = StrokeCap.Round)
+                )
+                if (animatedProgress > 0f) drawArc(
+                    brush = Brush.sweepGradient(listOf(Color(0xFF64C69B), MedMitraColors.MintDark, Color(0xFF64C69B)), center = center),
+                    startAngle = -90f, sweepAngle = 360f * animatedProgress,
+                    useCenter = false, style = Stroke(strokeWidth, cap = StrokeCap.Round)
+                )
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("$animatedPercentage%", style = MaterialTheme.typography.titleLarge, color = MedMitraColors.MintDark, fontWeight = FontWeight.Bold)
+                Text("${progress.completedDoses}/${progress.totalDoses} doses", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary, maxLines = 1)
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+            Text("TODAY’S PLAN", style = MaterialTheme.typography.labelLarge, color = MedMitraColors.MintDark, letterSpacing = 1.1.sp)
+            Spacer(Modifier.height(5.dp))
+            Text(
+                if (empty) "No medicines scheduled today." else "${progress.completedDoses} of ${progress.totalDoses} doses completed",
+                style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text
+            )
+            if (empty) {
+                TextButton(onClick = onAddMedicine, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add medicine", color = MedMitraColors.MintDark)
+                }
+            } else {
+                Spacer(Modifier.height(4.dp))
+                Text("Keep up your healthy routine", style = MaterialTheme.typography.bodyMedium, color = MedMitraColors.TextSecondary)
+            }
+        }
     }
 }
 
