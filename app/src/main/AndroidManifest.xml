@@ -49,6 +49,7 @@
         <activity
             android:name=".reminders.MedicineAlarmActivity"
             android:exported="false"
+            android:launchMode="singleTask"
             android:excludeFromRecents="true"
             android:showWhenLocked="true"
             android:turnScreenOn="true"

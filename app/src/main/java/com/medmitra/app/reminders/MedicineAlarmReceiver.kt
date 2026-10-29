@@ -182,7 +182,14 @@ object ReminderNotification {
                 "Snooze 5 min", actionPending(context, medicine.id, ReminderScheduler.ACTION_SNOOZE, doseAtMillis)
             ).build()
         )
-        if (isFullScreenIntentAllowed(context, manager)) builder.setFullScreenIntent(openPending, true)
+        // A full-screen notification is Android's approved way to launch an alarm
+        // UI from the background. SystemUI launches it when the device is locked;
+        // on an unlocked device Android 13+ deliberately shows an expanded heads-up
+        // notification instead. Do not replace this with startActivity() from the
+        // receiver: background activity launch restrictions would block it.
+        if (isFullScreenIntentAllowed(context, manager)) {
+            builder.setFullScreenIntent(openPending, true)
+        }
         val notification = builder.build()
 
         try {
@@ -227,6 +234,7 @@ object ReminderNotification {
             Build.VERSION.SDK_INT, specialAccess, notificationsEnabled, importance, NotificationManager.IMPORTANCE_HIGH
         )
     }
+
 }
 
 internal object ReminderAlarmPresentationPolicy {

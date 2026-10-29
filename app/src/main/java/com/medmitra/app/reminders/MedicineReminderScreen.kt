@@ -149,14 +149,14 @@ fun MedicineReminderScreen(onBack: () -> Unit) {
         }
         PlainCard(Modifier.fillMaxWidth()) {
             Text("Alarm experience", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
-            Text("Alarm sound and optional speech repeat until you choose Taken or Snooze. Snooze is 5 minutes. Android may show the notification instead of opening the alarm screen, especially while the phone is already in use.", color = MedMitraColors.TextSecondary)
+            Text("Alarm sound and optional speech repeat until you choose Taken or Snooze. Snooze is 5 minutes. When the phone is locked, Android can open the full-screen alarm if notifications, High channel importance, and full-screen access are enabled. When the phone is unlocked, Android 13 and later show an expanded alarm notification instead of taking over another app; this is enforced by Android.", color = MedMitraColors.TextSecondary)
             val channelReady = Build.VERSION.SDK_INT < 26 || alarmChannelImportance >= android.app.NotificationManager.IMPORTANCE_HIGH
             Text(
                 when {
                     !notificationGranted -> "Full-screen alarm unavailable: notifications are disabled."
                     !fullScreenGranted -> "Full-screen access is off. Android will keep the notification as fallback."
                     !channelReady -> "Medicine notification channel is below High importance."
-                    else -> "Full-screen access and High notification importance are enabled. Android may still show a heads-up alert while the screen is in use."
+                    else -> "Ready for automatic full-screen launch on the lock screen. While the phone is unlocked, Android may show the expanded notification instead."
                 },
                 color = MedMitraColors.TextSecondary,
                 modifier = Modifier.padding(top = 6.dp)
@@ -169,6 +169,7 @@ fun MedicineReminderScreen(onBack: () -> Unit) {
             if (!channelReady) {
                 TextButton(onClick = { openChannelSettings(context) }) { Text("Open medicine notification settings") }
             }
+            Text("Samsung phones: if alarms are delayed or suppressed, set MedMitra to Unrestricted under Settings → Apps → MedMitra → Battery, and add it to Never sleeping apps under Battery → Background usage limits. Menu names vary by One UI version. The full-screen setting is under Settings → Apps → Special access → Full screen alerts (or Full screen intents).", color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 6.dp))
         }
         if (schedules.isEmpty()) {
             PlainCard(Modifier.fillMaxWidth()) {

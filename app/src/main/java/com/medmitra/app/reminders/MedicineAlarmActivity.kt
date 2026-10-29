@@ -28,6 +28,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,7 +44,7 @@ import com.medmitra.app.ui.theme.MedMitraColors
 import com.medmitra.app.ui.theme.MedMitraTheme
 
 class MedicineAlarmActivity : ComponentActivity() {
-    private var intentId: Long = -1L
+    private var intentId by mutableLongStateOf(-1L)
     private var doseAtMillis: Long = 0L
     private val dismissReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: android.content.Context, intent: Intent) {
@@ -59,11 +61,10 @@ class MedicineAlarmActivity : ComponentActivity() {
             @Suppress("DEPRECATION") window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        val medicineId = intent.getLongExtra(ReminderScheduler.EXTRA_MEDICINE_ID, -1L)
-        intentId = medicineId
-        doseAtMillis = intent.getLongExtra(ReminderScheduler.EXTRA_DOSE_AT_MILLIS, 0L)
+        updateAlarmIntent(intent)
         setContent {
             MedMitraTheme {
+                val medicineId = intentId
                 val medicine by medicineState(medicineId)
                 BackHandler(enabled = true) { }
                 MedicineAlarmContent(
@@ -74,6 +75,17 @@ class MedicineAlarmActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        updateAlarmIntent(intent)
+    }
+
+    private fun updateAlarmIntent(intent: Intent) {
+        intentId = intent.getLongExtra(ReminderScheduler.EXTRA_MEDICINE_ID, -1L)
+        doseAtMillis = intent.getLongExtra(ReminderScheduler.EXTRA_DOSE_AT_MILLIS, 0L)
     }
 
     override fun onStart() {
