@@ -358,6 +358,7 @@ private fun HomeWelcomeCard(profile: com.medmitra.app.profile.UserProfile) {
     val firstName = profile.fullName.trim().substringBefore(' ').ifBlank { "friend" }
     AnimatedVisibility(
         visible = true,
+        modifier = Modifier.padding(top = 10.dp),
         enter = fadeIn(tween(360)) + slideInVertically(tween(360, easing = FastOutSlowInEasing)) { it / 12 }
     ) {
         Box(
