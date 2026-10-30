@@ -102,7 +102,7 @@
     <string name="app_text_catalog_098" formatted="false">Instructions (optional)</string>
     <string name="app_text_catalog_099" formatted="false">Choose reminder time</string>
     <string name="app_text_catalog_100" formatted="false">Set time</string>
-    <string name="app_text_catalog_101" formatted="false">It&apos;s time to take your medicine.</string>
+    <string name="app_text_catalog_101" formatted="false">It\'s time to take your medicine.</string>
     <string name="app_text_catalog_102" formatted="false">Speech starts when you preview a message.</string>
     <string name="app_text_catalog_103" formatted="false">Enter a message for Android Text to Speech to read aloud. This does not record your voice.</string>
     <string name="app_text_catalog_104" formatted="false">Personal reminder message</string>
@@ -207,7 +207,7 @@
     <string name="app_text_catalog_203" formatted="false">Add trusted contact</string>
     <string name="app_text_catalog_204" formatted="false">Use international format, for example +14155550123.</string>
     <string name="app_text_catalog_205" formatted="false">Enter a valid E.164 number.</string>
-    <string name="app_text_catalog_206" formatted="false">Use your phone&apos;s emergency number for immediate danger. This SOS contacts the trusted person selected below.</string>
+    <string name="app_text_catalog_206" formatted="false">Use your phone\'s emergency number for immediate danger. This SOS contacts the trusted person selected below.</string>
     <string name="app_text_catalog_207" formatted="false">Selected trusted contact</string>
     <string name="app_text_catalog_208" formatted="false">No enabled trusted contact. Add one in Emergency Contacts.</string>
     <string name="app_text_catalog_209" formatted="false">PLEASE WAIT</string>
@@ -265,7 +265,7 @@
     <string name="app_text_catalog_261" formatted="false">Stop monitoring</string>
     <string name="app_text_catalog_262" formatted="false">DEMO · Possible fall alert</string>
     <string name="app_text_catalog_263" formatted="false">Possible fall detected</string>
-    <string name="app_text_catalog_264" formatted="false">I&apos;m okay</string>
+    <string name="app_text_catalog_264" formatted="false">I\'m okay</string>
     <string name="app_text_catalog_265" formatted="false">Fall alert demo complete</string>
     <string name="app_text_catalog_266" formatted="false">Fall alert needs your attention</string>
     <string name="app_text_catalog_267" formatted="false">Demo only. No SMS or call was made.</string>
