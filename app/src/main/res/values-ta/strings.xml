@@ -1,5 +1,5 @@
 <resources>
-    <string-array name="app_text_catalog">
+    <string-array name="app_text_catalog" translatable="false">
         <item>முகப்பு</item>
         <item>செயல்பாடு</item>
         <item>சுயவிவரம்</item>
@@ -344,7 +344,7 @@
         <item>மருந்தை நீக்கு</item>
         <item>மருத்துவக் குறி</item>
     </string-array>
-    <string-array name="app_text_templates">
+    <string-array name="app_text_templates" translatable="false">
         <item>மீண்டும் வரவேற்கிறோம், %1$s</item>
         <item>%1$s/%2$s மருந்தளவுகள்</item>
         <item>%1$s/%2$s மருந்தளவுகள் முடிக்கப்பட்டன</item>
