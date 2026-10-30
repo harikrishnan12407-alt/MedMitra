@@ -16,8 +16,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -29,9 +34,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -53,6 +60,9 @@ fun FallDetectionScreen(onBack: () -> Unit) {
     var sensitivity by remember { mutableStateOf(FallPreferences.sensitivity(context)) }
     var countdownSeconds by remember { mutableStateOf(FallPreferences.countdownSeconds(context)) }
     var sensitivityMenu by remember { mutableStateOf(false) }
+    var monitoringInfoExpanded by rememberSaveable { mutableStateOf(false) }
+    var backgroundLimitsExpanded by rememberSaveable { mutableStateOf(false) }
+    var detectionInfoExpanded by rememberSaveable { mutableStateOf(false) }
     var notificationsEnabled by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
 
@@ -123,8 +133,6 @@ fun FallDetectionScreen(onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         PageHeader("Fall Safety", onBack = onBack)
-        Text("Monitoring is opt-in and uses a motion heuristic. It can miss falls or flag ordinary movement; it is not medical-grade and cannot replace emergency services.", color = MedMitraColors.TextSecondary)
-        Text("Android may ask for Activity Recognition permission to run this health foreground service. Sensor readings stay on this device.", color = MedMitraColors.TextSecondary)
         PlainCard(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -149,7 +157,6 @@ fun FallDetectionScreen(onBack: () -> Unit) {
         }
         PlainCard(Modifier.fillMaxWidth()) {
             Text("Detection sensitivity", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
-            Text("Lower sensitivity reduces false alarms but may miss events. Higher sensitivity may trigger more often. New settings apply immediately if monitoring is active.", color = MedMitraColors.TextSecondary)
             Button(onClick = { sensitivityMenu = true }, modifier = Modifier.fillMaxWidth()) { Text(sensitivity.name.lowercase().replaceFirstChar { it.uppercase() }) }
             DropdownMenu(expanded = sensitivityMenu, onDismissRequest = { sensitivityMenu = false }) {
                 FallSensitivity.entries.forEach { option -> DropdownMenuItem(text = { Text(option.name.lowercase().replaceFirstChar { it.uppercase() }) }, onClick = {
@@ -157,18 +164,12 @@ fun FallDetectionScreen(onBack: () -> Unit) {
                     if (monitoring) FallMonitoringService.updateSensitivity(context)
                 }) }
             }
-            Text("False-alarm countdown · $countdownSeconds seconds", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+        }
+        PlainCard(Modifier.fillMaxWidth()) {
+            Text("False-alarm countdown · $countdownSeconds seconds", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(15, 30, 60).forEach { seconds -> Button(onClick = { countdownSeconds = seconds; FallPreferences.setCountdownSeconds(context, seconds) }) { Text("${seconds}s") } }
             }
-            Text("A motion candidate shows a notification with an “I’m okay” cancel action. If it expires, MedMitra records it and offers SOS. It never sends a message or places a call automatically.", color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 4.dp))
-        }
-        PlainCard(Modifier.fillMaxWidth()) {
-            Text("Android background limits", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
-            Text("Start monitoring while this screen is visible. Android keeps it in a foreground service with a permanent notification. MedMitra does not restart sensor monitoring after reboot; turn it on again after a restart.", color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 4.dp))
-            Text("Accelerometer, gyroscope, and fused orientation data are processed locally when those sensors are available. MedMitra does not request background location or body-sensor access for this feature.", color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 4.dp))
-            val batteryUnrestricted = runCatching { context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true }.getOrDefault(false)
-            Text(if (batteryUnrestricted) "Battery optimization exemption: allowed" else "Battery optimization: Android or the phone maker may pause the service under heavy restrictions. Review system battery settings if monitoring stops." , color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 4.dp))
         }
         Button(onClick = {
             val activityAllowed = Build.VERSION.SDK_INT < 29 || ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
@@ -178,11 +179,69 @@ fun FallDetectionScreen(onBack: () -> Unit) {
                 statusMessage = "Requesting a safe demo alert. No SMS or call will be made."
                 FallMonitoringService.demo(context)
             } catch (_: Exception) { statusMessage = "Android could not start the demo foreground service." }
-        }, modifier = Modifier.fillMaxWidth()) { Text("Test alert safely (no contact)") }
+        }, modifier = Modifier.fillMaxWidth()) { Text("Test Fall Alert (No Contact)") }
+        Text(
+            "Send a sample fall alert to this device only. No SMS or calls will be made.",
+            color = MedMitraColors.TextSecondary
+        )
         statusMessage?.let { Text(it, color = MedMitraColors.Coral) }
         if (!notificationsEnabled) Button(onClick = {
             if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             else context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
         }, modifier = Modifier.fillMaxWidth()) { Text("Enable notifications") }
+        FallInformationSection(
+            title = "Monitoring information",
+            expanded = monitoringInfoExpanded,
+            onToggle = { monitoringInfoExpanded = !monitoringInfoExpanded }
+        ) {
+            Text("Monitoring is opt-in and uses a motion heuristic. It can miss falls or flag ordinary movement; it is not medical-grade and cannot replace emergency services.", color = MedMitraColors.TextSecondary)
+            Text("Android may ask for Activity Recognition permission to run this health foreground service. Sensor readings stay on this device.", color = MedMitraColors.TextSecondary)
+        }
+        FallInformationSection(
+            title = "Android background limits",
+            expanded = backgroundLimitsExpanded,
+            onToggle = { backgroundLimitsExpanded = !backgroundLimitsExpanded }
+        ) {
+            Text("Start monitoring while this screen is visible. Android keeps it in a foreground service with a permanent notification. MedMitra does not restart sensor monitoring after reboot; turn it on again after a restart.", color = MedMitraColors.TextSecondary)
+            Text("Accelerometer, gyroscope, and fused orientation data are processed locally when those sensors are available. MedMitra does not request background location or body-sensor access for this feature.", color = MedMitraColors.TextSecondary)
+            val batteryUnrestricted = runCatching { context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true }.getOrDefault(false)
+            Text(if (batteryUnrestricted) "Battery optimization exemption: allowed" else "Battery optimization: Android or the phone maker may pause the service under heavy restrictions. Review system battery settings if monitoring stops.", color = MedMitraColors.TextSecondary)
+        }
+        FallInformationSection(
+            title = "Detection information",
+            expanded = detectionInfoExpanded,
+            onToggle = { detectionInfoExpanded = !detectionInfoExpanded }
+        ) {
+            Text("Lower sensitivity reduces false alarms but may miss events. Higher sensitivity may trigger more often. New settings apply immediately if monitoring is active.", color = MedMitraColors.TextSecondary)
+            Text("A motion candidate shows a notification with an “I’m okay” cancel action. The selected countdown gives you time to cancel a false alarm. If it expires, MedMitra records the event and offers SOS. It never sends a message or places a call automatically.", color = MedMitraColors.TextSecondary)
+        }
+    }
+}
+
+@Composable
+private fun FallInformationSection(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    PlainCard(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onToggle).padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            androidx.compose.material3.Icon(
+                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                tint = MedMitraColors.TextSecondary
+            )
+        }
+        if (expanded) {
+            androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                content()
+            }
+        }
     }
 }
