@@ -52,10 +52,10 @@ object AppText {
                 val english = configuredContext(appContext, Locale.ENGLISH)
                 val tamil = configuredContext(appContext, Locale("ta"))
                 Catalog(
-                    english.resources.getStringArray(R.array.app_text_catalog),
-                    tamil.resources.getStringArray(R.array.app_text_catalog),
-                    english.resources.getStringArray(R.array.app_text_templates),
-                    tamil.resources.getStringArray(R.array.app_text_templates)
+                    readCatalog(english, "app_text_catalog"),
+                    readCatalog(tamil, "app_text_catalog"),
+                    readCatalog(english, "app_text_templates"),
+                    readCatalog(tamil, "app_text_templates")
                 )
             }
         }
@@ -78,6 +78,15 @@ object AppText {
             setLocale(locale)
             setLayoutDirection(locale)
         })
+
+    private fun readCatalog(context: Context, name: String): Array<String> {
+        val countId = context.resources.getIdentifier("${name}_count", "integer", context.packageName)
+        val count = context.resources.getInteger(countId)
+        return Array(count) { index ->
+            val id = context.resources.getIdentifier("${name}_${index.toString().padStart(3, '0')}", "string", context.packageName)
+            context.resources.getString(id)
+        }
+    }
 
     private fun templateMatch(template: String, value: String): MatchResult? {
         val placeholders = Regex("%[1-9]\\$s")
