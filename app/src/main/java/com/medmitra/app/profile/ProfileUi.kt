@@ -33,7 +33,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import com.medmitra.app.ui.localization.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -109,7 +109,9 @@ fun ProfileSetupScreen(onBack: (() -> Unit)?, onSaved: () -> Unit, onSkip: (() -
     var name by remember { mutableStateOf(initial.fullName) }
     var age by remember { mutableStateOf(if (initial.age == 0) "" else initial.age.toString()) }
     var photo by remember { mutableStateOf(initial.photoUri) }
-    var language by remember { mutableStateOf(initial.language.ifBlank { "English" }) }
+    var language by remember {
+        mutableStateOf(initial.language.takeIf { it == "English" || it == "தமிழ்" || it == "Tamil" }?.let { if (it == "Tamil") "தமிழ்" else it } ?: "English")
+    }
     var emergencyName by remember { mutableStateOf(initial.emergencyName) }
     var emergencyPhone by remember { mutableStateOf(initial.emergencyPhone) }
     var contactConsent by remember { mutableStateOf(initial.emergencyName.isNotBlank() && initial.emergencyPhone.isNotBlank()) }
@@ -179,7 +181,7 @@ fun ProfileSetupScreen(onBack: (() -> Unit)?, onSaved: () -> Unit, onSkip: (() -
             Column {
                 OutlinedButton(onClick = { languageMenu = true }, modifier = Modifier.fillMaxWidth()) { Text("Preferred language · $language") }
                 DropdownMenu(expanded = languageMenu, onDismissRequest = { languageMenu = false }) {
-                    listOf("English", "हिन्दी", "தமிழ்", "తెలుగు", "ಕನ್ನಡ", "മലയാളം", "বাংলা", "मराठी").forEach { item ->
+                    listOf("English", "தமிழ்").forEach { item ->
                         DropdownMenuItem(text = { Text(item) }, onClick = { language = item; languageMenu = false })
                     }
                 }
@@ -213,7 +215,7 @@ fun ProfileSetupScreen(onBack: (() -> Unit)?, onSaved: () -> Unit, onSkip: (() -
                         }
                         ProfilePreferences.save(context, UserProfile(name.trim(), ageValue, photo, language, if (contactConsent) emergencyName.trim() else "", if (contactConsent) emergencyPhone.trim() else ""))
                     }
-                    Toast.makeText(context, "Profile saved", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, com.medmitra.app.ui.localization.AppText.translate(context, "Profile saved"), Toast.LENGTH_SHORT).show()
                     onSaved()
                 } catch (_: Exception) {
                     error = "Could not save your profile. Your existing data has not been cleared."
@@ -235,12 +237,12 @@ fun ProfileAvatar(uri: String, name: String, modifier: Modifier = Modifier) {
         value = if (uri.isBlank()) null else withContextSafe { runCatching { decodeProfileBitmap(context, Uri.parse(uri)) }.getOrNull() }
     }
     androidx.compose.foundation.layout.Box(modifier.clip(CircleShape).background(MedMitraColors.MintPale), contentAlignment = Alignment.Center) {
-        if (bitmap != null) Image(bitmap!!.asImageBitmap(), contentDescription = "Profile photo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        if (bitmap != null) Image(bitmap!!.asImageBitmap(), contentDescription = com.medmitra.app.ui.localization.AppText.translate(context, "Profile photo"), modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else {
             androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().clip(CircleShape), contentAlignment = Alignment.Center) {
                 val initial = profileInitial(name)
                 if (initial == null) {
-                    Icon(Icons.Filled.Person, contentDescription = "Profile", tint = MedMitraColors.MintDark, modifier = Modifier.size(30.dp))
+                    Icon(Icons.Filled.Person, contentDescription = com.medmitra.app.ui.localization.AppText.translate(context, "Profile"), tint = MedMitraColors.MintDark, modifier = Modifier.size(30.dp))
                 } else {
                     Text(initial, color = MedMitraColors.MintDark, fontWeight = FontWeight.Bold)
                 }

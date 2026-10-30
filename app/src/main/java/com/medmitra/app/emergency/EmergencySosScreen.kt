@@ -40,7 +40,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
+import com.medmitra.app.ui.localization.Text
+import com.medmitra.app.ui.localization.AppText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -188,8 +189,8 @@ fun EmergencySosScreen(database: MedMitraDatabase, onBack: () -> Unit) {
                     !context.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_MESSAGING) || !hasSmsCapability(context) -> { smsStatus = HandoffStatus.UNAVAILABLE; smsLabel = "SMS hardware or subscription unavailable" }
                     else -> {
                         val body = buildString {
-                            append("I need help. Please contact me.")
-                            if (location != null) append(" My current location: https://maps.google.com/?q=${location.latitude},${location.longitude}")
+                            append(AppText.translate(context, "I need help. Please contact me."))
+                            if (location != null) append(" ${AppText.translate(context, "My current location")}: https://maps.google.com/?q=${location.latitude},${location.longitude}")
                         }
                         smsStatus = sendEmergencySms(context, contact.phoneE164, body, eventId)
                         smsLabel = if (smsStatus == HandoffStatus.OUTCOME_UNKNOWN) "Submitted to Android; delivery not confirmed" else "Failed to submit; use fallback below"
@@ -222,12 +223,12 @@ fun EmergencySosScreen(database: MedMitraDatabase, onBack: () -> Unit) {
                 enabledContacts.forEach { contact ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = contact.id == selected?.id, onClick = { selectedId = contact.id })
-                        Column { Text(contact.name, color = Color(0xFF221A19), fontWeight = FontWeight.SemiBold); Text(contact.phoneE164, color = Color(0xFF594442)) }
+                        Column { Text(contact.name, color = Color(0xFF221A19), fontWeight = FontWeight.SemiBold, localize = false); Text(contact.phoneE164, color = Color(0xFF594442), localize = false) }
                     }
                 }
             }
             Box(Modifier.padding(vertical = 12.dp).scale(if (animationsEnabled) pulse else 1f), contentAlignment = Alignment.Center) {
-                Button(onClick = { beginSos() }, enabled = selected != null && !isBusy, modifier = Modifier.size(204.dp).semantics { contentDescription = "Start SOS with a five second cancellation countdown" }, shape = CircleShape, colors = ButtonDefaults.buttonColors(containerColor = EmergencyRed, contentColor = Color.White)) {
+                Button(onClick = { beginSos() }, enabled = selected != null && !isBusy, modifier = Modifier.size(204.dp).semantics { contentDescription = AppText.translate(context, "Start SOS with a five second cancellation countdown") }, shape = CircleShape, colors = ButtonDefaults.buttonColors(containerColor = EmergencyRed, contentColor = Color.White)) {
                     Text(if (isBusy) "PLEASE WAIT" else "SOS", fontSize = 42.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
                 }
             }
@@ -244,7 +245,7 @@ fun EmergencySosScreen(database: MedMitraDatabase, onBack: () -> Unit) {
                     Text("Action status", color = EmergencyDeepRed, fontWeight = FontWeight.Bold)
                     StatusLine("Location", locationLabel); StatusLine("SMS", smsLabel); StatusLine("Call", callLabel)
                     val smsFailedAfterSubmit = activeHistory?.smsAttemptStatus?.startsWith("SMS_FAILED") == true || activeHistory?.smsAttemptStatus?.startsWith("SMS_SEND_FAILED") == true
-                    if (EmergencyPreferences.autoSms(context) && (snapshot.smsStatus != HandoffStatus.OUTCOME_UNKNOWN || smsFailedAfterSubmit)) OutlinedButton(onClick = { statusMessage = if (openSmsFallback(context, selected?.phoneE164.orEmpty(), locationFallbackText(activeHistory))) "SMS app opened. Review and send the message there." else "No compatible SMS app is available." }, modifier = Modifier.fillMaxWidth()) { Text("Open SMS app to send manually") }
+                    if (EmergencyPreferences.autoSms(context) && (snapshot.smsStatus != HandoffStatus.OUTCOME_UNKNOWN || smsFailedAfterSubmit)) OutlinedButton(onClick = { statusMessage = if (openSmsFallback(context, selected?.phoneE164.orEmpty(), locationFallbackText(context, activeHistory))) "SMS app opened. Review and send the message there." else "No compatible SMS app is available." }, modifier = Modifier.fillMaxWidth()) { Text("Open SMS app to send manually") }
                     if (EmergencyPreferences.autoCall(context) && snapshot.callStatus != HandoffStatus.OUTCOME_UNKNOWN) OutlinedButton(onClick = { statusMessage = if (openDialer(context, selected?.phoneE164.orEmpty())) "Phone dialer opened. Confirm the call there." else "No compatible phone dialer is available." }, modifier = Modifier.fillMaxWidth()) { Text("Open phone dialer") }
                     Button(onClick = { beginSos() }, modifier = Modifier.fillMaxWidth()) { Text("Start another SOS") }
                 }
@@ -266,7 +267,7 @@ fun EmergencySosScreen(database: MedMitraDatabase, onBack: () -> Unit) {
     }
 }
 
-@Composable private fun StatusLine(label: String, status: String) { Text("$label · $status", color = Color(0xFF3D302F), modifier = Modifier.padding(vertical = 2.dp)) }
+@Composable private fun StatusLine(label: String, status: String) { val context = LocalContext.current; Text("${AppText.translate(context, label)} · ${AppText.translate(context, status)}", color = Color(0xFF3D302F), modifier = Modifier.padding(vertical = 2.dp), localize = false) }
 private fun hasPermission(context: Context, permission: String) = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 @Suppress("DEPRECATION") private fun hasSmsCapability(context: Context): Boolean = runCatching { context.getSystemService(SmsManager::class.java) != null || SmsManager.getDefault() != null }.getOrDefault(false)
 
@@ -294,8 +295,8 @@ private fun placeAutomaticCall(context: Context, phone: String): HandoffStatus {
 }
 
 private fun openDialer(context: Context, phone: String): Boolean = if (phone.isBlank()) false else runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(phone)}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true }.getOrDefault(false)
-private fun openSmsFallback(context: Context, phone: String, location: String): Boolean = if (phone.isBlank()) false else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(phone)}")).putExtra("sms_body", "I need help. Please contact me.$location").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true }.getOrDefault(false)
-private fun locationFallbackText(event: EmergencyHistoryEvent?): String = event?.latitude?.let { latitude -> event.longitude?.let { longitude -> " My current location: https://maps.google.com/?q=$latitude,$longitude" } } ?: " Location was unavailable."
+private fun openSmsFallback(context: Context, phone: String, location: String): Boolean = if (phone.isBlank()) false else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(phone)}")).putExtra("sms_body", "${AppText.translate(context, "I need help. Please contact me.")}$location").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true }.getOrDefault(false)
+private fun locationFallbackText(context: Context, event: EmergencyHistoryEvent?): String = event?.latitude?.let { latitude -> event.longitude?.let { longitude -> " ${AppText.translate(context, "My current location")}: https://maps.google.com/?q=$latitude,$longitude" } } ?: " ${AppText.translate(context, "Location was unavailable.")}"
 
 @Suppress("DEPRECATION")
 internal suspend fun currentLocation(context: Context): Location? = withTimeoutOrNull(12_000L) {

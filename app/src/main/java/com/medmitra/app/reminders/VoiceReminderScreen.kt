@@ -14,7 +14,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
+import com.medmitra.app.ui.localization.Text
+import com.medmitra.app.ui.localization.AppText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -59,7 +60,7 @@ object VoiceReminderSpeaker {
                     main.post {
                         if (token != request) return@post
                         val speaker = active ?: return@post
-                        val language = if (result == TextToSpeech.SUCCESS) speaker.setLanguage(Locale.getDefault()) else TextToSpeech.LANG_MISSING_DATA
+                        val language = if (result == TextToSpeech.SUCCESS) speaker.setLanguage(AppText.locale(context)) else TextToSpeech.LANG_MISSING_DATA
                         if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
                             release(token)
                             onResult(false)
@@ -123,7 +124,7 @@ fun VoiceReminderScreen(onBack: () -> Unit) {
                     speaking = true
                     VoiceReminderSpeaker.speak(context, message, "preview", onResult = { success ->
                         speaking = success
-                        status = if (success) "Speaking preview in ${Locale.getDefault().displayName}." else "Speech could not start. Check the installed speech engine and language data."
+                        status = if (success) AppText.translate(context, "Speaking preview in ${AppText.locale(context).getDisplayName(AppText.locale(context))}.") else "Speech could not start. Check the installed speech engine and language data."
                     }, onFinished = { speaking = false })
                 }
             }, enabled = message.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Play preview") }

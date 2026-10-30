@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import com.medmitra.app.MainActivity
 import com.medmitra.app.data.EmergencyHistoryEvent
 import com.medmitra.app.data.MedMitraDatabase
+import com.medmitra.app.ui.localization.AppText
 import com.medmitra.app.domain.FallDetector
 import com.medmitra.app.domain.FallDetectionConfig
 import kotlinx.coroutines.CoroutineScope
@@ -305,15 +306,15 @@ class FallMonitoringService : Service(), SensorEventListener {
 
     private fun monitoringNotification(): Notification = notificationBuilder(MONITOR_CHANNEL_ID)
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-        .setContentTitle("Fall monitoring is active")
-        .setContentText("Motion is monitored on this device. Tap to manage.")
+        .setContentTitle(AppText.translate(this, "Fall monitoring is active"))
+        .setContentText(AppText.translate(this, "Motion is monitored on this device. Tap to manage."))
         .setCategory(Notification.CATEGORY_SERVICE)
         .setOngoing(true)
         .setContentIntent(openFallPendingIntent())
         .addAction(
             Notification.Action.Builder(
                 android.R.drawable.ic_media_pause,
-                "Stop monitoring",
+                AppText.translate(this@FallMonitoringService, "Stop monitoring"),
                 actionPendingIntent(ACTION_STOP, REQUEST_STOP)
             ).build()
         )
@@ -321,8 +322,8 @@ class FallMonitoringService : Service(), SensorEventListener {
 
     private fun possibleFallNotification(seconds: Int): Notification = notificationBuilder(ALERT_CHANNEL_ID)
         .setSmallIcon(android.R.drawable.ic_dialog_alert)
-        .setContentTitle(if (demoAlert) "DEMO · Possible fall alert" else "Possible fall detected")
-        .setContentText(if (demoAlert) "Safe demo · tap “I’m okay” within $seconds seconds. No contact actions are available." else "Tap “I’m okay” within $seconds seconds to cancel. No call or message is sent automatically.")
+        .setContentTitle(AppText.translate(this, if (demoAlert) "DEMO · Possible fall alert" else "Possible fall detected"))
+        .setContentText(AppText.translate(this, if (demoAlert) "Safe demo · tap “I’m okay” within $seconds seconds. No contact actions are available." else "Tap “I’m okay” within $seconds seconds to cancel. No call or message is sent automatically."))
         .setCategory(Notification.CATEGORY_ALARM)
         .setOngoing(true)
         .setOnlyAlertOnce(true)
@@ -330,7 +331,7 @@ class FallMonitoringService : Service(), SensorEventListener {
         .addAction(
             Notification.Action.Builder(
                 android.R.drawable.checkbox_on_background,
-                "I'm okay",
+                AppText.translate(this@FallMonitoringService, "I'm okay"),
                 actionPendingIntent(ACTION_ACKNOWLEDGE, REQUEST_ACKNOWLEDGE)
             ).build()
         )
@@ -338,8 +339,8 @@ class FallMonitoringService : Service(), SensorEventListener {
 
     private fun expiredAlertNotification(isDemo: Boolean): Notification = notificationBuilder(ALERT_CHANNEL_ID)
         .setSmallIcon(android.R.drawable.ic_dialog_alert)
-        .setContentTitle(if (isDemo) "Fall alert demo complete" else "Fall alert needs your attention")
-        .setContentText(if (isDemo) "Demo only. No SMS or call was made." else "No response was received. No call or message was sent; open SOS if you need help.")
+        .setContentTitle(AppText.translate(this, if (isDemo) "Fall alert demo complete" else "Fall alert needs your attention"))
+        .setContentText(AppText.translate(this, if (isDemo) "Demo only. No SMS or call was made." else "No response was received. No call or message was sent; open SOS if you need help."))
         .setCategory(Notification.CATEGORY_ALARM)
         .setOnlyAlertOnce(true)
         .setAutoCancel(true)
@@ -348,8 +349,8 @@ class FallMonitoringService : Service(), SensorEventListener {
 
     private fun statusNotification(title: String, message: String): Notification = notificationBuilder(MONITOR_CHANNEL_ID)
         .setSmallIcon(android.R.drawable.ic_dialog_alert)
-        .setContentTitle(title)
-        .setContentText(message)
+        .setContentTitle(AppText.translate(this, title))
+        .setContentText(AppText.translate(this, message))
         .setAutoCancel(true)
         .build()
 
@@ -385,10 +386,10 @@ class FallMonitoringService : Service(), SensorEventListener {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(
-                NotificationChannel(MONITOR_CHANNEL_ID, "Fall monitoring", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(MONITOR_CHANNEL_ID, AppText.translate(this, "Fall monitoring"), NotificationManager.IMPORTANCE_LOW)
             )
             manager.createNotificationChannel(
-                NotificationChannel(ALERT_CHANNEL_ID, "Fall alerts", NotificationManager.IMPORTANCE_HIGH)
+                NotificationChannel(ALERT_CHANNEL_ID, AppText.translate(this, "Fall alerts"), NotificationManager.IMPORTANCE_HIGH)
             )
         }
     }

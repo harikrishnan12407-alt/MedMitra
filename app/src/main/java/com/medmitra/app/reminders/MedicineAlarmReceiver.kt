@@ -16,6 +16,7 @@ import com.medmitra.app.data.EmergencyHistoryEvent
 import com.medmitra.app.data.MedicineDoseEvent
 import com.medmitra.app.data.MedMitraDatabase
 import com.medmitra.app.data.MedicineSchedule
+import com.medmitra.app.ui.localization.AppText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -130,9 +131,9 @@ object ReminderNotification {
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(
                 NotificationChannel(
                     ReminderScheduler.CHANNEL_ID,
-                    "Medicine reminders",
+                    AppText.translate(context, "Medicine reminders"),
                     NotificationManager.IMPORTANCE_HIGH
-                ).apply { description = "Scheduled reminders you create in MedMitra" }
+                ).apply { description = AppText.translate(context, "Scheduled reminders you create in MedMitra") }
             )
         }
     }
@@ -156,10 +157,10 @@ object ReminderNotification {
         } else {
             @Suppress("DEPRECATION") Notification.Builder(context)
         }.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(if (isSnooze) "Snoozed medicine reminder" else "Medicine reminder")
-            .setContentText("${medicine.name} · ${medicine.dosage} · ${formatScheduledTime(medicine.hour, medicine.minute)}")
+            .setContentTitle(AppText.translate(context, if (isSnooze) "Snoozed medicine reminder" else "Medicine reminder"))
+            .setContentText("${medicine.name} · ${medicine.dosage} · ${formatScheduledTime(medicine.hour, medicine.minute, AppText.locale(context))}")
             .setStyle(Notification.BigTextStyle().bigText(buildString {
-                append("Time for ${medicine.name}: ${medicine.dosage}. ${formatScheduledTime(medicine.hour, medicine.minute)}.")
+                append(AppText.translate(context, "Time for ${medicine.name}: ${medicine.dosage}. ${formatScheduledTime(medicine.hour, medicine.minute, AppText.locale(context))}."))
                 if (medicine.instructions.isNotBlank()) append(" ${medicine.instructions}")
             }))
             .setCategory(Notification.CATEGORY_ALARM)
@@ -174,12 +175,12 @@ object ReminderNotification {
         builder.addAction(
             Notification.Action.Builder(
                 android.R.drawable.checkbox_on_background,
-                "Taken", actionPending(context, medicine.id, ReminderScheduler.ACTION_MARK_TAKEN, doseAtMillis)
+                AppText.translate(context, "Taken"), actionPending(context, medicine.id, ReminderScheduler.ACTION_MARK_TAKEN, doseAtMillis)
             ).build()
         ).addAction(
             Notification.Action.Builder(
                 android.R.drawable.ic_lock_idle_alarm,
-                "Snooze 5 min", actionPending(context, medicine.id, ReminderScheduler.ACTION_SNOOZE, doseAtMillis)
+                AppText.translate(context, "Snooze 5 min"), actionPending(context, medicine.id, ReminderScheduler.ACTION_SNOOZE, doseAtMillis)
             ).build()
         )
         // A full-screen notification is Android's approved way to launch an alarm
@@ -202,10 +203,10 @@ object ReminderNotification {
     fun foregroundSummary(context: Context, medicine: MedicineSchedule): Notification {
         val manager = context.getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.createNotificationChannel(NotificationChannel(ALARM_SERVICE_CHANNEL, "Active medicine alarm", NotificationManager.IMPORTANCE_LOW))
+            manager.createNotificationChannel(NotificationChannel(ALARM_SERVICE_CHANNEL, AppText.translate(context, "Active medicine alarm"), NotificationManager.IMPORTANCE_LOW))
         }
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(context, ALARM_SERVICE_CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(context)
-        return builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("Medicine alarm active")
+        return builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle(AppText.translate(context, "Medicine alarm active"))
             .setContentText("${medicine.name} · ${medicine.dosage}").setCategory(Notification.CATEGORY_SERVICE).setOngoing(true).build()
     }
 
@@ -247,8 +248,8 @@ internal fun scheduledTimeMillis(hour: Int, minute: Int): Long {
     return now.toLocalDate().atTime(hour, minute).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 }
 
-internal fun formatScheduledTime(hour: Int, minute: Int): String =
-    java.time.LocalTime.of(hour, minute).format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
+internal fun formatScheduledTime(hour: Int, minute: Int, locale: java.util.Locale = java.util.Locale.getDefault()): String =
+    java.time.LocalTime.of(hour, minute).format(java.time.format.DateTimeFormatter.ofPattern("h:mm a", locale))
 
 class ReminderRescheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {

@@ -23,6 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.Role
 import com.medmitra.app.ui.theme.MedMitraColors
+import com.medmitra.app.ui.localization.Text
+import com.medmitra.app.ui.localization.AppText
+import androidx.compose.ui.platform.LocalContext
 
 private val CardShape = RoundedCornerShape(20.dp)
 
@@ -81,10 +84,11 @@ fun SectionHeading(title: String, action: String? = null, onAction: (() -> Unit)
 
 @Composable
 fun PageHeader(title: String, onBack: (() -> Unit)? = null, trailing: (@Composable () -> Unit)? = null) {
+    val context = LocalContext.current
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) {
             IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = MedMitraColors.Text)
+                Icon(Icons.Filled.ArrowBack, contentDescription = AppText.translate(context, "Back"), tint = MedMitraColors.Text)
             }
             Spacer(Modifier.width(4.dp))
         }

@@ -26,7 +26,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
+import com.medmitra.app.ui.localization.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.Composable
@@ -86,11 +86,11 @@ fun EmergencyContactsScreen(database: MedMitraDatabase, onBack: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconBadge(Icons.Filled.Person, size = 40)
                     Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                        Text(contact.name, color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
-                        Text(contact.phoneE164, color = MedMitraColors.TextSecondary)
+                        Text(contact.name, color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold, localize = false)
+                        Text(contact.phoneE164, color = MedMitraColors.TextSecondary, localize = false)
                     }
                     TextButton(onClick = { scope.launch { database.contacts().delete(contact.id) } }) {
-                        androidx.compose.material3.Icon(Icons.Filled.Delete, contentDescription = "Delete ${contact.name}")
+                        androidx.compose.material3.Icon(Icons.Filled.Delete, contentDescription = com.medmitra.app.ui.localization.AppText.translate(context, "Delete contact"))
                     }
                 }
                 TextButton(onClick = { editTarget = contact; showEditor = true }) { Text("Edit contact") }
@@ -175,7 +175,7 @@ private fun EmergencyExpandableSection(
             Text(title, color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             androidx.compose.material3.Icon(
                 imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                contentDescription = com.medmitra.app.ui.localization.AppText.translate(context, if (expanded) "Collapse $title" else "Expand $title"),
                 tint = MedMitraColors.TextSecondary
             )
         }

@@ -68,6 +68,7 @@ import com.medmitra.app.ui.components.PageHeader
 import com.medmitra.app.ui.components.PlainCard
 import com.medmitra.app.ui.components.SectionHeading
 import com.medmitra.app.ui.theme.MedMitraColors
+import com.medmitra.app.ui.localization.Text
 import com.medmitra.app.ui.theme.MedMitraTheme
 import kotlinx.coroutines.delay
 import java.time.LocalDate
@@ -93,7 +94,16 @@ class MainActivity : ComponentActivity() {
             isAppearanceLightStatusBars = !showingSplash
             isAppearanceLightNavigationBars = !showingSplash
         }
-        setContent { MedMitraTheme { MedMitraApp(startDestination = startDestination) } }
+        setContent {
+            val savedProfile by com.medmitra.app.profile.ProfilePreferences.observe(this@MainActivity)
+                .collectAsState(initial = com.medmitra.app.profile.ProfilePreferences.read(this@MainActivity))
+            val localizedContext = remember(savedProfile.language) {
+                com.medmitra.app.ui.localization.AppText.localizedContext(this@MainActivity)
+            }
+            androidx.compose.runtime.CompositionLocalProvider(LocalContext provides localizedContext) {
+                MedMitraTheme { MedMitraApp(startDestination = startDestination) }
+            }
+        }
     }
 }
 @Composable
@@ -157,7 +167,7 @@ private fun MedMitraNavigation(startDestination: String) {
                         NavigationBarItem(
                             selected = route == destination,
                             onClick = { nav.navigate(destination) { launchSingleTop = true } },
-                            icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(21.dp)) },
+                            icon = { Icon(icon, contentDescription = com.medmitra.app.ui.localization.AppText.translate(context, label), modifier = Modifier.size(21.dp)) },
                             label = { Text(label, fontSize = 10.sp, fontWeight = FontWeight.Medium) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MedMitraColors.MintDark,
@@ -580,9 +590,10 @@ private fun HistoryContent() {
         }
         doses.forEach { dose ->
             PlainCard(Modifier.fillMaxWidth()) {
-                Text("${dose.medicineName} · ${if (dose.status == "TAKEN") "Taken" else "Snoozed"}", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-                Text(dose.dosage, color = MedMitraColors.TextSecondary)
-                Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(dose.actionAtMillis)), color = MedMitraColors.TextSecondary)
+                val status = com.medmitra.app.ui.localization.AppText.translate(context, if (dose.status == "TAKEN") "Taken" else "Snoozed")
+                Text("${dose.medicineName} · $status", style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text, localize = false)
+                Text(dose.dosage, color = MedMitraColors.TextSecondary, localize = false)
+                Text(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT, com.medmitra.app.ui.localization.AppText.locale(context)).format(java.util.Date(dose.actionAtMillis)), color = MedMitraColors.TextSecondary)
             }
         }
         events.forEach { event ->
@@ -603,7 +614,7 @@ private fun HistoryContent() {
             }
             PlainCard(Modifier.fillMaxWidth()) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = MedMitraColors.Text)
-                Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(event.occurredAtMillis)), color = MedMitraColors.TextSecondary)
+                Text(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT, com.medmitra.app.ui.localization.AppText.locale(context)).format(java.util.Date(event.occurredAtMillis)), color = MedMitraColors.TextSecondary)
                 if (event.notes.isNotBlank()) Text(event.notes, color = MedMitraColors.TextSecondary)
                 if (event.eventType.startsWith("SOS") || event.eventType.startsWith("FALL")) {
                     Text("Location: ${event.locationStatus} · SMS: ${event.smsAttemptStatus} · Call: ${event.callAttemptStatus}", color = MedMitraColors.TextSecondary)
@@ -631,7 +642,7 @@ private fun ProfileScreen(onOpen: (String) -> Unit, onEdit: () -> Unit, onPermis
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 com.medmitra.app.profile.ProfileAvatar(profile.photoUri, profile.fullName, Modifier.size(64.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(profile.fullName.ifBlank { "Your profile" }, style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text)
+                    Text(profile.fullName.ifBlank { "Your profile" }, style = MaterialTheme.typography.titleLarge, color = MedMitraColors.Text, localize = profile.fullName.isBlank())
                     Text(if (profile.age > 0) "Age ${profile.age}" else "Add your age", color = MedMitraColors.TextSecondary)
                 }
             }

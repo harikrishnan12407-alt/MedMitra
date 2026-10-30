@@ -47,7 +47,8 @@ import androidx.compose.material.icons.filled.Snooze
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.medmitra.app.ui.localization.Text
+import com.medmitra.app.ui.localization.AppText
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,6 +58,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -99,16 +101,19 @@ class MedicineAlarmActivity : ComponentActivity() {
         }
         updateAlarmIntent(intent)
         setContent {
-            MedMitraTheme {
-                val medicineId = intentId
-                val medicine by medicineState(medicineId)
-                BackHandler(enabled = true) { }
-                MedicineAlarmContent(
-                    medicine = medicine,
-                    snoozeMinutes = 5,
-                    onTaken = { finishWithAction(medicineId, ReminderScheduler.ACTION_MARK_TAKEN) },
-                    onSnooze = { finishWithAction(medicineId, ReminderScheduler.ACTION_SNOOZE) }
-                )
+            val localizedContext = remember { AppText.localizedContext(this@MedicineAlarmActivity) }
+            androidx.compose.runtime.CompositionLocalProvider(LocalContext provides localizedContext) {
+                MedMitraTheme {
+                    val medicineId = intentId
+                    val medicine by medicineState(medicineId)
+                    BackHandler(enabled = true) { }
+                    MedicineAlarmContent(
+                        medicine = medicine,
+                        snoozeMinutes = 5,
+                        onTaken = { finishWithAction(medicineId, ReminderScheduler.ACTION_MARK_TAKEN) },
+                        onSnooze = { finishWithAction(medicineId, ReminderScheduler.ACTION_SNOOZE) }
+                    )
+                }
             }
         }
     }
@@ -160,6 +165,7 @@ class MedicineAlarmActivity : ComponentActivity() {
 
 @Composable
 private fun MedicineAlarmContent(medicine: MedicineSchedule?, snoozeMinutes: Int, onTaken: () -> Unit, onSnooze: () -> Unit) {
+    val context = LocalContext.current
     val dark = isSystemInDarkTheme()
     val palette = if (dark) AlarmPalette(
         backgroundTop = Color(0xFF071E1A), backgroundBottom = Color(0xFF0B3027),
@@ -229,7 +235,7 @@ private fun MedicineAlarmContent(medicine: MedicineSchedule?, snoozeMinutes: Int
                         ).border(1.dp, palette.ring.copy(alpha = .32f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.Medication, contentDescription = "Medicine", tint = palette.accent, modifier = Modifier.size(65.dp).scale(pulse))
+                        Icon(Icons.Filled.Medication, contentDescription = AppText.translate(context, "Medicine"), tint = palette.accent, modifier = Modifier.size(65.dp).scale(pulse))
                     }
                     Box(
                         Modifier.align(Alignment.BottomEnd).padding(end = 28.dp, bottom = 26.dp).size(42.dp)
@@ -242,7 +248,7 @@ private fun MedicineAlarmContent(medicine: MedicineSchedule?, snoozeMinutes: Int
 
                 Text("It’s time for", color = palette.secondary, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 1.dp))
                 Text(
-                    medicine?.name ?: "Medicine reminder", color = palette.text,
+                    medicine?.name ?: "Medicine reminder", color = palette.text, localize = medicine == null,
                     style = MaterialTheme.typography.headlineMedium.copy(fontSize = 31.sp, lineHeight = 37.sp),
                     textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
                 )
@@ -255,17 +261,17 @@ private fun MedicineAlarmContent(medicine: MedicineSchedule?, snoozeMinutes: Int
                 ) {
                     Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            AlarmDetail(label = "DOSAGE", value = medicine?.dosage?.ifBlank { "As prescribed" } ?: "", palette = palette, modifier = Modifier.weight(1f))
+                            AlarmDetail(label = "DOSAGE", value = medicine?.dosage?.ifBlank { "As prescribed" } ?: "", palette = palette, valueLocalize = medicine?.dosage.isNullOrBlank(), modifier = Modifier.weight(1f))
                             Box(Modifier.padding(horizontal = 16.dp).width(1.dp).height(38.dp).background(palette.panelBorder))
                             AlarmDetail(
                                 label = "SCHEDULED",
-                                value = medicine?.let { formatScheduledTime(it.hour, it.minute) } ?: "",
+                                value = medicine?.let { formatScheduledTime(it.hour, it.minute, AppText.locale(context)) } ?: "",
                                 palette = palette, modifier = Modifier.weight(1f)
                             )
                         }
                         if (!medicine?.instructions.isNullOrBlank()) {
                             Box(Modifier.fillMaxWidth().padding(vertical = 14.dp).height(1.dp).background(palette.panelBorder))
-                            Text(medicine?.instructions.orEmpty(), color = palette.secondary, style = MaterialTheme.typography.bodyLarge)
+                            Text(medicine?.instructions.orEmpty(), color = palette.secondary, style = MaterialTheme.typography.bodyLarge, localize = false)
                         }
                     }
                 }
@@ -304,10 +310,10 @@ private data class AlarmPalette(
 )
 
 @Composable
-private fun AlarmDetail(label: String, value: String, palette: AlarmPalette, modifier: Modifier = Modifier) {
+private fun AlarmDetail(label: String, value: String, palette: AlarmPalette, valueLocalize: Boolean = false, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text(label, color = palette.secondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-        Text(value, color = palette.text, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 5.dp))
+        Text(value, color = palette.text, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 5.dp), localize = valueLocalize)
     }
 }
 

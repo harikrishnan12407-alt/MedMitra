@@ -32,7 +32,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
+import com.medmitra.app.ui.localization.Text
+import com.medmitra.app.ui.localization.AppText
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
@@ -312,10 +313,10 @@ private fun MedicineScheduleItem(
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(Icons.Filled.Medication, tint = MedMitraColors.MintDark, size = 40)
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                Text(medicine.name, color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
-                Text(medicine.dosage, color = MedMitraColors.TextSecondary)
+                Text(medicine.name, color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold, localize = false)
+                Text(medicine.dosage, color = MedMitraColors.TextSecondary, localize = false)
             }
-            SoftPill(LocalTime.of(medicine.hour, medicine.minute).format(DateTimeFormatter.ofPattern("h:mm a")))
+            SoftPill(LocalTime.of(medicine.hour, medicine.minute).format(DateTimeFormatter.ofPattern("h:mm a", AppText.locale(context))))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             val now = java.time.ZonedDateTime.now()
@@ -325,22 +326,22 @@ private fun MedicineScheduleItem(
             val statusState = medicineDoseStatus(medicine.enabled, nowMillis, startOfToday, scheduledToday, medicine.lastTakenAtMillis, medicine.snoozedUntilMillis)
             val status = when (statusState) {
                 MedicineDoseStatus.DISABLED -> "Disabled"
-                MedicineDoseStatus.SNOOZED -> "Snoozed until ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(medicine.snoozedUntilMillis!!))}"
+                MedicineDoseStatus.SNOOZED -> "Snoozed until ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT, AppText.locale(context)).format(java.util.Date(medicine.snoozedUntilMillis!!))}"
                 MedicineDoseStatus.TAKEN -> "Taken today"
                 MedicineDoseStatus.MISSED -> "Missed today · daily"
                 MedicineDoseStatus.UPCOMING -> "Upcoming · daily"
             }
             Text(status, Modifier.weight(1f), color = MedMitraColors.TextSecondary)
             Switch(checked = medicine.enabled, onCheckedChange = onToggle)
-            TextButton(onClick = onEdit) { androidx.compose.material3.Icon(Icons.Filled.Edit, contentDescription = "Edit ${medicine.name}") }
+            TextButton(onClick = onEdit) { androidx.compose.material3.Icon(Icons.Filled.Edit, contentDescription = AppText.translate(context, "Edit medicine")) }
             TextButton(onClick = onDelete) {
-                androidx.compose.material3.Icon(Icons.Filled.Delete, contentDescription = "Delete ${medicine.name}")
+                androidx.compose.material3.Icon(Icons.Filled.Delete, contentDescription = AppText.translate(context, "Delete medicine"))
             }
         }
         if (medicine.lastTakenAtMillis != null) {
-            Text("Last marked taken: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(medicine.lastTakenAtMillis))}", color = MedMitraColors.TextSecondary)
+            Text("Last marked taken: ${java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT, AppText.locale(context)).format(java.util.Date(medicine.lastTakenAtMillis))}", color = MedMitraColors.TextSecondary)
         }
-        if (medicine.instructions.isNotBlank()) Text(medicine.instructions, color = MedMitraColors.TextSecondary)
+        if (medicine.instructions.isNotBlank()) Text(medicine.instructions, color = MedMitraColors.TextSecondary, localize = false)
         OutlinedButton(onClick = onTaken, modifier = Modifier.fillMaxWidth()) {
             androidx.compose.material3.Icon(Icons.Filled.Check, contentDescription = null)
             Text("Mark taken today", Modifier.padding(start = 6.dp))

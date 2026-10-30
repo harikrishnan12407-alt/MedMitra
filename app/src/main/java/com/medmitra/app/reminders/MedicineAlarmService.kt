@@ -13,6 +13,7 @@ import android.os.Looper
 import android.os.PowerManager
 import com.medmitra.app.data.MedicineSchedule
 import com.medmitra.app.data.MedMitraDatabase
+import com.medmitra.app.ui.localization.AppText
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -144,7 +145,8 @@ class MedicineAlarmService : Service() {
     private fun speakFor(medicine: MedicineSchedule) {
         if (!VoiceReminderPreferences.enabled(this)) return
         val text = buildString {
-            append(VoiceReminderPreferences.message(this@MedicineAlarmService))
+            val savedMessage = VoiceReminderPreferences.message(this@MedicineAlarmService)
+            append(if (savedMessage == "It's time to take your medicine.") AppText.translate(this@MedicineAlarmService, savedMessage) else savedMessage)
             append(" ${medicine.name}, ${medicine.dosage}.")
             if (medicine.instructions.isNotBlank()) append(" ${medicine.instructions}")
         }

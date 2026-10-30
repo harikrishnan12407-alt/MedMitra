@@ -27,7 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
+import com.medmitra.app.ui.localization.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -233,7 +233,7 @@ private fun FallInformationSection(
             Text(title, color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             androidx.compose.material3.Icon(
                 imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                contentDescription = com.medmitra.app.ui.localization.AppText.translate(context, if (expanded) "Collapse $title" else "Expand $title"),
                 tint = MedMitraColors.TextSecondary
             )
         }
