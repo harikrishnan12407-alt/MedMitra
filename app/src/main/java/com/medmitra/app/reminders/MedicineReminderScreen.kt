@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,6 +25,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
@@ -41,9 +44,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -74,6 +79,8 @@ fun MedicineReminderScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var showEditor by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<MedicineSchedule?>(null) }
+    var reminderDetailsExpanded by rememberSaveable { mutableStateOf(false) }
+    var alarmDetailsExpanded by rememberSaveable { mutableStateOf(false) }
     var notificationGranted by remember {
         mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
     }
@@ -114,63 +121,6 @@ fun MedicineReminderScreen(onBack: () -> Unit) {
     ) {
         PageHeader("Medicine Reminders", onBack = onBack)
         Text("Saved schedules", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
-        Text(
-            "Reminders are stored on this device. Android may delay them when exact alarm access is off or battery restrictions are active.",
-            color = MedMitraColors.TextSecondary
-        )
-        PlainCard(Modifier.fillMaxWidth()) {
-            Text("Notifications", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
-            Text(
-                if (notificationGranted) "Allowed" else "Off · reminders may not appear",
-                color = MedMitraColors.TextSecondary,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            if (!notificationGranted) {
-                TextButton(onClick = {
-                    if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
-                }) { Text("Enable notifications") }
-            }
-        }
-        if (Build.VERSION.SDK_INT >= 31) {
-            PlainCard(Modifier.fillMaxWidth()) {
-                Text("Alarm timing", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
-                Text(
-                    if (exactAlarmsAllowed) "Exact reminders are allowed" else "Exact access is off; reminders may be delayed",
-                    color = MedMitraColors.TextSecondary,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-                if (!exactAlarmsAllowed) TextButton(onClick = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData(Uri.parse("package:${context.packageName}"))
-                    )
-                }) { Text("Allow exact alarms") }
-            }
-        }
-        PlainCard(Modifier.fillMaxWidth()) {
-            Text("Alarm experience", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
-            Text("Alarm sound and optional speech repeat until you choose Taken or Snooze. Snooze is 5 minutes. When the phone is locked, Android can open the full-screen alarm if notifications, High channel importance, and full-screen access are enabled. When the phone is unlocked, Android 13 and later show an expanded alarm notification instead of taking over another app; this is enforced by Android.", color = MedMitraColors.TextSecondary)
-            val channelReady = Build.VERSION.SDK_INT < 26 || alarmChannelImportance >= android.app.NotificationManager.IMPORTANCE_HIGH
-            Text(
-                when {
-                    !notificationGranted -> "Full-screen alarm unavailable: notifications are disabled."
-                    !fullScreenGranted -> "Full-screen access is off. Android will keep the notification as fallback."
-                    !channelReady -> "Medicine notification channel is below High importance."
-                    else -> "Ready for automatic full-screen launch on the lock screen. While the phone is unlocked, Android may show the expanded notification instead."
-                },
-                color = MedMitraColors.TextSecondary,
-                modifier = Modifier.padding(top = 6.dp)
-            )
-            if (Build.VERSION.SDK_INT >= 34 && !fullScreenGranted) {
-                TextButton(onClick = {
-                    openReminderSettings(context, Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
-                }) { Text("Allow full-screen alarms") }
-            }
-            if (!channelReady) {
-                TextButton(onClick = { openChannelSettings(context) }) { Text("Open medicine notification settings") }
-            }
-            Text("Samsung phones: if alarms are delayed or suppressed, set MedMitra to Unrestricted under Settings → Apps → MedMitra → Battery, and add it to Never sleeping apps under Battery → Background usage limits. Menu names vary by One UI version. The full-screen setting is under Settings → Apps → Special access → Full screen alerts (or Full screen intents).", color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 6.dp))
-        }
         if (schedules.isEmpty()) {
             PlainCard(Modifier.fillMaxWidth()) {
                 Text("No medicine reminders yet", color = MedMitraColors.Text)
@@ -211,6 +161,69 @@ fun MedicineReminderScreen(onBack: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text("Add medicine reminder")
         }
+        ReminderExpandableSection(
+            title = "Notification and alarm access",
+            expanded = reminderDetailsExpanded,
+            onToggle = { reminderDetailsExpanded = !reminderDetailsExpanded }
+        ) {
+            Text(
+                "Reminders are stored on this device. Android may delay them when exact alarm access is off or battery restrictions are active.",
+                color = MedMitraColors.TextSecondary
+            )
+            Text("Notifications", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+            Text(
+                if (notificationGranted) "Allowed" else "Off · reminders may not appear",
+                color = MedMitraColors.TextSecondary,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            if (!notificationGranted) {
+                TextButton(onClick = {
+                    if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    else context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+                }) { Text("Enable notifications") }
+            }
+            if (Build.VERSION.SDK_INT >= 31) {
+                Text("Alarm timing", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+                Text(
+                    if (exactAlarmsAllowed) "Exact reminders are allowed" else "Exact access is off; reminders may be delayed",
+                    color = MedMitraColors.TextSecondary,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                if (!exactAlarmsAllowed) TextButton(onClick = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData(Uri.parse("package:${context.packageName}"))
+                    )
+                }) { Text("Allow exact alarms") }
+            }
+        }
+        ReminderExpandableSection(
+            title = "Alarm experience and Android settings",
+            expanded = alarmDetailsExpanded,
+            onToggle = { alarmDetailsExpanded = !alarmDetailsExpanded }
+        ) {
+            Text("Alarm experience", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
+            Text("Alarm sound and optional speech repeat until you choose Taken or Snooze. Snooze is 5 minutes. When the phone is locked, Android can open the full-screen alarm if notifications, High channel importance, and full-screen access are enabled. When the phone is unlocked, Android 13 and later show an expanded alarm notification instead of taking over another app; this is enforced by Android.", color = MedMitraColors.TextSecondary)
+            val channelReady = Build.VERSION.SDK_INT < 26 || alarmChannelImportance >= android.app.NotificationManager.IMPORTANCE_HIGH
+            Text(
+                when {
+                    !notificationGranted -> "Full-screen alarm unavailable: notifications are disabled."
+                    !fullScreenGranted -> "Full-screen access is off. Android will keep the notification as fallback."
+                    !channelReady -> "Medicine notification channel is below High importance."
+                    else -> "Ready for automatic full-screen launch on the lock screen. While the phone is unlocked, Android may show the expanded notification instead."
+                },
+                color = MedMitraColors.TextSecondary,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+            if (Build.VERSION.SDK_INT >= 34 && !fullScreenGranted) {
+                TextButton(onClick = {
+                    openReminderSettings(context, Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+                }) { Text("Allow full-screen alarms") }
+            }
+            if (!channelReady) {
+                TextButton(onClick = { openChannelSettings(context) }) { Text("Open medicine notification settings") }
+            }
+            Text("Samsung phones: if alarms are delayed or suppressed, set MedMitra to Unrestricted under Settings → Apps → MedMitra → Battery, and add it to Never sleeping apps under Battery → Background usage limits. Menu names vary by One UI version. The full-screen setting is under Settings → Apps → Special access → Full screen alerts (or Full screen intents).", color = MedMitraColors.TextSecondary, modifier = Modifier.padding(top = 6.dp))
+        }
         if (showEditor) {
             MedicineEditor(
                 initial = editTarget,
@@ -227,6 +240,32 @@ fun MedicineReminderScreen(onBack: () -> Unit) {
                     }
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun ReminderExpandableSection(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    PlainCard(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onToggle).padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            androidx.compose.material3.Icon(
+                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                tint = MedMitraColors.TextSecondary
+            )
+        }
+        if (expanded) {
+            Spacer(Modifier.height(8.dp))
+            content()
         }
     }
 }

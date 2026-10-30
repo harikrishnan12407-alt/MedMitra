@@ -9,14 +9,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
@@ -32,11 +36,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.medmitra.app.data.EmergencyContact
 import com.medmitra.app.data.MedMitraDatabase
@@ -60,6 +66,7 @@ fun EmergencyContactsScreen(database: MedMitraDatabase, onBack: () -> Unit) {
     var shareLocation by remember { mutableStateOf(EmergencyPreferences.shareLocation(context)) }
     var permissionStatus by remember { mutableStateOf("") }
     var testingLocation by remember { mutableStateOf(false) }
+    var emergencySetupExpanded by rememberSaveable { mutableStateOf(false) }
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
         permissionStatus = if (results.values.any { it }) "Permission results saved by Android. Review the current access below." else "No requested permissions were granted. Automatic actions will be unavailable until enabled in Android Settings."
     }
@@ -68,41 +75,6 @@ fun EmergencyContactsScreen(database: MedMitraDatabase, onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         PageHeader("Emergency Contacts", onBack = onBack)
-        Text("Contacts and emergency-action preferences stay on this device. Automatic SMS or calling can contact people without another confirmation after the SOS countdown.", color = MedMitraColors.TextSecondary)
-        PlainCard(Modifier.fillMaxWidth()) {
-            Text("Emergency action setup", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
-            Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(autoSms, { autoSms = it; EmergencyPreferences.save(context, sms = it) }); Text("Send SMS automatically after SOS countdown") }
-            Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(autoCall, { autoCall = it; EmergencyPreferences.save(context, call = it) }); Text("Call selected contact automatically after SOS countdown") }
-            Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(shareLocation, { shareLocation = it; EmergencyPreferences.save(context, location = it) }); Text("Include a fresh location in emergency SMS when available") }
-            Text("Automatic SMS requires Android SEND_SMS access, cellular service, and an active subscription. Google Play requires approval for its physical-safety SMS exception; without approval, use the SMS app fallback. A successful send request does not prove delivery. Direct calls start without another confirmation and cannot be verified as connected.", color = MedMitraColors.TextSecondary)
-            Text("SMS permission: ${permissionLabel(context, Manifest.permission.SEND_SMS)} · Call permission: ${permissionLabel(context, Manifest.permission.CALL_PHONE)}", color = MedMitraColors.TextSecondary)
-            Text("Location permission: ${if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) "Allowed" else "Off"}", color = MedMitraColors.TextSecondary)
-            Button(onClick = {
-                val requested = buildList {
-                    if (autoSms && ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.SEND_SMS)
-                    if (autoCall && ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.CALL_PHONE)
-                    if (shareLocation && ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        add(Manifest.permission.ACCESS_COARSE_LOCATION); add(Manifest.permission.ACCESS_FINE_LOCATION)
-                    }
-                }
-                if (requested.isEmpty()) permissionStatus = "All permissions selected in setup are currently granted."
-                else permissions.launch(requested.toTypedArray())
-            }, modifier = Modifier.fillMaxWidth()) { Text("Grant selected permissions") }
-            OutlinedButton(onClick = {
-                val permitted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                if (!permitted) permissionStatus = "Grant location access to safely test a location fix. No SMS or calls were made."
-                else {
-                    testingLocation = true
-                    permissionStatus = "Checking a fresh location. No SMS or calls will be made."
-                    scope.launch {
-                        val location = withContext(Dispatchers.IO) { currentLocation(context) }
-                        permissionStatus = if (location == null) "No fresh location was available. Check location services and network. No SMS or calls were made." else "Location test passed (${location.latitude}, ${location.longitude}, ±${location.accuracy.toInt()} m). No SMS or calls were made."
-                        testingLocation = false
-                    }
-                }
-            }, enabled = !testingLocation, modifier = Modifier.fillMaxWidth()) { Text(if (testingLocation) "Testing location…" else "Safely test setup (no contact)") }
-            if (permissionStatus.isNotBlank()) Text(permissionStatus, color = MedMitraColors.TextSecondary)
-        }
         if (contacts.isEmpty()) {
             PlainCard(Modifier.fillMaxWidth()) {
                 Text("No emergency contacts saved", color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold)
@@ -135,6 +107,44 @@ fun EmergencyContactsScreen(database: MedMitraDatabase, onBack: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text("Add emergency contact")
         }
+        EmergencyExpandableSection(
+            title = "Emergency action setup",
+            expanded = emergencySetupExpanded,
+            onToggle = { emergencySetupExpanded = !emergencySetupExpanded }
+        ) {
+            Text("Contacts and emergency-action preferences stay on this device. Automatic SMS or calling can contact people without another confirmation after the SOS countdown.", color = MedMitraColors.TextSecondary)
+            Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(autoSms, { autoSms = it; EmergencyPreferences.save(context, sms = it) }); Text("Send SMS automatically after SOS countdown") }
+            Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(autoCall, { autoCall = it; EmergencyPreferences.save(context, call = it) }); Text("Call selected contact automatically after SOS countdown") }
+            Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(shareLocation, { shareLocation = it; EmergencyPreferences.save(context, location = it) }); Text("Include a fresh location in emergency SMS when available") }
+            Text("Automatic SMS requires Android SEND_SMS access, cellular service, and an active subscription. Google Play requires approval for its physical-safety SMS exception; without approval, use the SMS app fallback. A successful send request does not prove delivery. Direct calls start without another confirmation and cannot be verified as connected.", color = MedMitraColors.TextSecondary)
+            Text("SMS permission: ${permissionLabel(context, Manifest.permission.SEND_SMS)} · Call permission: ${permissionLabel(context, Manifest.permission.CALL_PHONE)}", color = MedMitraColors.TextSecondary)
+            Text("Location permission: ${if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) "Allowed" else "Off"}", color = MedMitraColors.TextSecondary)
+            Button(onClick = {
+                val requested = buildList {
+                    if (autoSms && ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.SEND_SMS)
+                    if (autoCall && ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.CALL_PHONE)
+                    if (shareLocation && ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                        add(Manifest.permission.ACCESS_COARSE_LOCATION); add(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                }
+                if (requested.isEmpty()) permissionStatus = "All permissions selected in setup are currently granted."
+                else permissions.launch(requested.toTypedArray())
+            }, modifier = Modifier.fillMaxWidth()) { Text("Grant selected permissions") }
+            OutlinedButton(onClick = {
+                val permitted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                if (!permitted) permissionStatus = "Grant location access to safely test a location fix. No SMS or calls were made."
+                else {
+                    testingLocation = true
+                    permissionStatus = "Checking a fresh location. No SMS or calls will be made."
+                    scope.launch {
+                        val location = withContext(Dispatchers.IO) { currentLocation(context) }
+                        permissionStatus = if (location == null) "No fresh location was available. Check location services and network. No SMS or calls were made." else "Location test passed (${location.latitude}, ${location.longitude}, ±${location.accuracy.toInt()} m). No SMS or calls were made."
+                        testingLocation = false
+                    }
+                }
+            }, enabled = !testingLocation, modifier = Modifier.fillMaxWidth()) { Text(if (testingLocation) "Testing location…" else "Safely test setup (no contact)") }
+            if (permissionStatus.isNotBlank()) Text(permissionStatus, color = MedMitraColors.TextSecondary)
+        }
         if (showEditor) {
             ContactEditor(
                 initial = editTarget,
@@ -146,6 +156,32 @@ fun EmergencyContactsScreen(database: MedMitraDatabase, onBack: () -> Unit) {
                     scope.launch { if (target == null) database.contacts().save(EmergencyContact(name = name, phoneE164 = phone)) else database.contacts().update(target.copy(name = name, phoneE164 = phone)) }
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun EmergencyExpandableSection(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    PlainCard(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onToggle).padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, color = MedMitraColors.Text, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            androidx.compose.material3.Icon(
+                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                tint = MedMitraColors.TextSecondary
+            )
+        }
+        if (expanded) {
+            Spacer(Modifier.height(8.dp))
+            content()
         }
     }
 }
